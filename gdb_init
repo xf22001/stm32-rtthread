@@ -40,10 +40,10 @@ b BusFault_Handler
 b UsageFault_Handler
 b WWDG_IRQHandler
 b main
-b app
-	commands
-		c
-	end
+#b app
+#	commands
+#		c
+#	end
 #b HAL_CAN_TxCpltCallback
 #	commands
 #		c

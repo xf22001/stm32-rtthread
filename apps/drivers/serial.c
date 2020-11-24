@@ -6,7 +6,7 @@
  *   文件名称：serial.c
  *   创 建 者：肖飞
  *   创建日期：2020年11月24日 星期二 10时38分16秒
- *   修改日期：2020年11月24日 星期二 14时42分15秒
+ *   修改日期：2020年11月24日 星期二 15时35分55秒
  *   描    述：
  *
  *================================================================*/
@@ -43,7 +43,7 @@ static rt_err_t rt_serial_init (rt_device_t dev)
 
 		/* Enable USART */
 		dev->flag |= RT_DEVICE_FLAG_ACTIVATED;
-		HAL_UART_Receive_IT(uart->huart, &uart->int_rx->rx_buffer[uart->int_rx->read_index], 1);
+		HAL_UART_Receive_DMA(uart->huart, &uart->int_rx->rx_buffer[uart->int_rx->read_index], 1);
 	}
 
 	return RT_EOK;
@@ -89,14 +89,14 @@ static rt_size_t rt_serial_read(rt_device_t dev, rt_off_t pos, void *buffer, rt_
 					uart->int_rx->read_index = 0;
 				}
 			} else {
-				/* set error code */
-				err_code = -RT_EEMPTY;
+				HAL_UART_Receive_DMA(uart->huart, &uart->int_rx->rx_buffer[uart->int_rx->save_index], 1);
 
-				HAL_UART_Receive_IT(uart->huart, &uart->int_rx->rx_buffer[uart->int_rx->save_index], 1);
+				/* set error code */
+				//err_code = -RT_EEMPTY;
 
 				/* enable interrupt */
-				rt_hw_interrupt_enable(level);
-				break;
+				//rt_hw_interrupt_enable(level);
+				//break;
 			}
 
 			/* enable interrupt */
@@ -283,7 +283,7 @@ void rt_hw_serial_rx_isr(rt_device_t device)
 
 	/* if the next position is read index, discard this 'read char' */
 	if (uart->int_rx->save_index == uart->int_rx->read_index) {
-		uart->int_rx->read_index ++;
+		uart->int_rx->read_index++;
 
 		if (uart->int_rx->read_index >= UART_RX_BUFFER_SIZE) {
 			uart->int_rx->read_index = 0;
@@ -293,7 +293,7 @@ void rt_hw_serial_rx_isr(rt_device_t device)
 	/* enable interrupt */
 	rt_hw_interrupt_enable(level);
 
-	HAL_UART_Receive_IT(uart->huart, &uart->int_rx->rx_buffer[uart->int_rx->save_index], 1);
+	HAL_UART_Receive_DMA(uart->huart, &uart->int_rx->rx_buffer[uart->int_rx->save_index], 1);
 
 	/* invoke callback */
 	if (device->rx_indicate != RT_NULL) {

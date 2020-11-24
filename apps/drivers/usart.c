@@ -6,7 +6,7 @@
  *   文件名称：usart.c
  *   创 建 者：肖飞
  *   创建日期：2020年11月24日 星期二 10时26分25秒
- *   修改日期：2020年11月24日 星期二 14时36分36秒
+ *   修改日期：2020年11月24日 星期二 15时20分12秒
  *   描    述：
  *
  *================================================================*/
@@ -51,8 +51,8 @@ void rt_hw_usart_init()
 #endif
 
 	/* uart init */
-#ifdef RT_USING_UART6
-	/* register uart1 */
+#ifdef RT_USING_UART3
+	/* register uart3 */
 	rt_hw_serial_register(&uart3_device, "uart3",
 	                      RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_STREAM,
 	                      &uart3);
@@ -64,18 +64,18 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 	/* enter interrupt */
 	rt_interrupt_enter();
 
-#ifdef RT_USING_UART3
+#ifdef RT_USING_UART1
 
-	if(huart == uart3_device.huart) {
-		rt_hw_serial_dma_tx_isr(&uart3_device);
+	if(huart == uart1.huart) {
+		rt_hw_serial_dma_tx_isr(&uart1_device);
 	}
 
 #endif
 
-#ifdef RT_USING_UART6
+#ifdef RT_USING_UART3
 
-	if(huart == uart6_device.huart) {
-		rt_hw_serial_dma_tx_isr(&uart6_device);
+	if(huart == uart3.huart) {
+		rt_hw_serial_dma_tx_isr(&uart3_device);
 	}
 
 #endif
@@ -89,18 +89,18 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	/* enter interrupt */
 	rt_interrupt_enter();
 
-#ifdef RT_USING_UART3
+#ifdef RT_USING_UART1
 
-	if(huart == uart3_device.huart) {
-		rt_hw_serial_rx_isr(&uart3_device);
+	if(huart == uart1.huart) {
+		rt_hw_serial_rx_isr(&uart1_device);
 	}
 
 #endif
 
-#ifdef RT_USING_UART6
+#ifdef RT_USING_UART3
 
-	if(huart == uart6_device.huart) {
-		rt_hw_serial_rx_isr(&uart6_device);
+	if(huart == uart3.huart) {
+		rt_hw_serial_rx_isr(&uart3_device);
 	}
 
 #endif
