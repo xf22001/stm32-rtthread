@@ -6,7 +6,7 @@
 #   文件名称：user.mk
 #   创 建 者：肖飞
 #   创建日期：2019年10月25日 星期五 13时04分38秒
-#   修改日期：2020年11月24日 星期二 09时42分31秒
+#   修改日期：2020年11月24日 星期二 14时12分56秒
 #   描    述：
 #
 #================================================================
@@ -14,10 +14,16 @@ include config.mk
 include src.mk
 
 USER_C_INCLUDES += $(CPPPATHS)
+USER_C_INCLUDES += -Iapps
+USER_C_INCLUDES += -Iapps/drivers
 
 C_INCLUDES += $(USER_C_INCLUDES)
 
 USER_C_SOURCES += $(SRC_FILES)
+USER_C_SOURCES += apps/startup.c
+USER_C_SOURCES += apps/application.c
+USER_C_SOURCES += apps/drivers/usart.c
+USER_C_SOURCES += apps/drivers/serial.c
 
 C_SOURCES += $(USER_C_SOURCES)
 
@@ -28,6 +34,8 @@ USER_CFLAGS += $(DEFINES)
 CFLAGS += $(USER_CFLAGS)
 
 LDFLAGS += -u _printf_float
+
+LDSCRIPT = stm32_rom.ld
 
 #IAP_FILE := apps/modules/os/iap.h
 
