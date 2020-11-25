@@ -6,22 +6,25 @@
 #   文件名称：user.mk
 #   创 建 者：肖飞
 #   创建日期：2019年10月25日 星期五 13时04分38秒
-#   修改日期：2020年11月25日 星期三 13时20分59秒
+#   修改日期：2020年11月25日 星期三 13时52分55秒
 #   描    述：
 #
 #================================================================
 include config.mk
 include src.mk
 
+CPPPATHS := $(filter-out -I$(BSP_ROOT)/Drivers, $(CPPPATHS))
+CPPPATHS := $(filter-out -I$(BSP_ROOT)/Libraries%, $(CPPPATHS))
+CPPPATHS := $(filter-out -I$(BSP_ROOT)/applications, $(CPPPATHS))
 USER_C_INCLUDES += $(CPPPATHS)
 USER_C_INCLUDES += -Iapps
 USER_C_INCLUDES += -Iapps/drivers
 
 C_INCLUDES += $(USER_C_INCLUDES)
 
-SRC_FILES := $(filter-out $(BSP_ROOT)/Drivers/, $(SRC_FILES))
-SRC_FILES := $(filter-out $(BSP_ROOT)/Libraries/, $(SRC_FILES))
-SRC_FILES := $(filter-out $(BSP_ROOT)/applications/, $(SRC_FILES))
+SRC_FILES := $(filter-out $(BSP_ROOT)/Drivers%, $(SRC_FILES))
+SRC_FILES := $(filter-out $(BSP_ROOT)/Libraries%, $(SRC_FILES))
+SRC_FILES := $(filter-out $(BSP_ROOT)/applications%, $(SRC_FILES))
 
 USER_C_SOURCES += $(filter-out %.S, $(SRC_FILES))
 USER_C_SOURCES += apps/startup.c

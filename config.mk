@@ -1,7 +1,16 @@
 BSP_ROOT ?= /home/xiaofei/media/rt-thread/bsp/stm32f20x
 RTT_ROOT ?= /home/xiaofei/media/rt-thread
 
+CROSS_COMPILE ?=/usr/bin/arm-none-eabi-
+
 CPPPATHS :=-I$(BSP_ROOT) \
+	-I$(BSP_ROOT)/Drivers \
+	-I$(BSP_ROOT)/Libraries/CMSIS/CM3/CoreSupport \
+	-I$(BSP_ROOT)/Libraries/CMSIS/CM3/DeviceSupport/ST/STM32F2xx \
+	-I$(BSP_ROOT)/Libraries/CMSIS/Include \
+	-I$(BSP_ROOT)/Libraries/STM32F2x7_ETH_Driver/inc \
+	-I$(BSP_ROOT)/Libraries/STM32F2xx_StdPeriph_Driver/inc \
+	-I$(BSP_ROOT)/applications \
 	-I$(BSP_ROOT)/packages/at_device-latest/class/sim76xx \
 	-I$(BSP_ROOT)/packages/at_device-latest/inc \
 	-I$(RTT_ROOT)/components/dfs/filesystems/devfs \
