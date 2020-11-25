@@ -107,7 +107,6 @@ int main(void)
   MX_FATFS_Init();
   MX_TIM4_Init();
   MX_SPI3_Init();
-  //MX_IWDG_Init();
   MX_USART2_UART_Init();
   MX_USART6_UART_Init();
   MX_MBEDTLS_Init();
