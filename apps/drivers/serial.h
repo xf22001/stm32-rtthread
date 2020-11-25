@@ -6,7 +6,7 @@
  *   文件名称：serial.h
  *   创 建 者：肖飞
  *   创建日期：2020年11月24日 星期二 10时42分10秒
- *   修改日期：2020年11月25日 星期三 11时10分24秒
+ *   修改日期：2020年11月25日 星期三 13时19分36秒
  *   描    述：
  *
  *================================================================*/
@@ -68,5 +68,7 @@ struct stm32_serial_device
 	struct stm32_serial_dma_tx* dma_tx;
 };
 
-rt_err_t rt_hw_serial_register(rt_device_t device, const char* name, rt_uint32_t flag, struct stm32_serial_device *serial);
+rt_err_t rt_hw_serial_register(rt_device_t device, const char *name, rt_uint32_t flag, struct stm32_serial_device *serial);
+void rt_hw_serial_rx_isr(rt_device_t device);
+void rt_hw_serial_dma_tx_isr(rt_device_t device);
 #endif //_SERIAL_H

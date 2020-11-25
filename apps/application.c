@@ -37,6 +37,8 @@
 #endif
 
 #include "app_platform.h"
+#include "app.h"
+#include "iwdg.h"
 
 extern IWDG_HandleTypeDef hiwdg;
 extern TIM_HandleTypeDef htim4;
@@ -208,6 +210,7 @@ void rt_init_thread_entry(void *parameter)
 	/* init finsh */
 	finsh_system_init();
 #endif
+	start_app();
 	idle();
 }
 
