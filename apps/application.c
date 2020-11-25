@@ -99,24 +99,26 @@ static int rt_tick_enable = 0;
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-  /* USER CODE BEGIN Callback 0 */
+	/* USER CODE BEGIN Callback 0 */
 
-  /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM1) {
-	HAL_IncTick();
-	if(rt_tick_enable == 1) {
-		/* enter interrupt */
-		rt_interrupt_enter();
+	/* USER CODE END Callback 0 */
+	if (htim->Instance == TIM1) {
+		HAL_IncTick();
 
-		rt_tick_increase();
+		if(rt_tick_enable == 1) {
+			/* enter interrupt */
+			rt_interrupt_enter();
 
-		/* leave interrupt */
-		rt_interrupt_leave();
+			rt_tick_increase();
+
+			/* leave interrupt */
+			rt_interrupt_leave();
+		}
 	}
-  }
-  /* USER CODE BEGIN Callback 1 */
 
-  /* USER CODE END Callback 1 */
+	/* USER CODE BEGIN Callback 1 */
+
+	/* USER CODE END Callback 1 */
 }
 
 /**
@@ -162,28 +164,8 @@ void rt_init_thread_entry(void *parameter)
 	/* Filesystem Initialization */
 #ifdef RT_USING_DFS
 	{
-		/* init sdcard driver */
-#if STM32_USE_SDIO
-		//rt_hw_sdcard_init();
-#else
-		rt_hw_msd_init();
-#endif
-
 		/* init the device filesystem */
 		dfs_init();
-
-#ifdef RT_USING_DFS_ELMFAT
-		/* init the elm chan FatFs filesystam*/
-		elm_init();
-
-		/* mount sd card fat partition 1 as root directory */
-		if (dfs_mount("sd0", "/", "elm", 0, 0) == 0) {
-			rt_kprintf("File System initialized!\n");
-		} else {
-			rt_kprintf("File System initialzation failed!\n");
-		}
-
-#endif
 	}
 #endif
 
@@ -196,7 +178,7 @@ void rt_init_thread_entry(void *parameter)
 		eth_system_device_init();
 
 		/* initialize eth interface */
-		//rt_hw_stm32_eth_init();
+		rt_hw_stm32_eth_init();
 
 		/* init lwip system */
 		lwip_sys_init();

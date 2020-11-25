@@ -22,6 +22,8 @@
 
 /* USER CODE BEGIN 0 */
 
+#include "os_utils.h"
+
 /* USER CODE END 0 */
 
 ETH_HandleTypeDef heth;
@@ -44,6 +46,9 @@ void MX_ETH_Init(void)
   heth.Init.MediaInterface = ETH_MEDIA_INTERFACE_RMII;
 
   /* USER CODE BEGIN MACADDRESS */
+  heth.Init.MACAddr[3] =  get_u8_b2_from_u32(HAL_GetUIDw0());
+  heth.Init.MACAddr[4] =  get_u8_b1_from_u32(HAL_GetUIDw0());
+  heth.Init.MACAddr[5] =  get_u8_b0_from_u32(HAL_GetUIDw0());
     
   /* USER CODE END MACADDRESS */
 

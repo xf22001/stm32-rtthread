@@ -6,7 +6,7 @@
 #   文件名称：user.mk
 #   创 建 者：肖飞
 #   创建日期：2019年10月25日 星期五 13时04分38秒
-#   修改日期：2020年11月25日 星期三 13时52分55秒
+#   修改日期：2020年11月25日 星期三 16时21分17秒
 #   描    述：
 #
 #================================================================
@@ -32,6 +32,8 @@ USER_C_SOURCES += apps/application.c
 USER_C_SOURCES += apps/app.c
 USER_C_SOURCES += apps/drivers/usart.c
 USER_C_SOURCES += apps/drivers/serial.c
+USER_C_SOURCES += apps/drivers/eth.c
+USER_C_SOURCES += apps/drivers/eth_link_monitor.c
 
 C_SOURCES += $(USER_C_SOURCES)
 
