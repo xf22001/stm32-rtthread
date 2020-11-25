@@ -6,7 +6,7 @@
  *   文件名称：eth.c
  *   创 建 者：肖飞
  *   创建日期：2020年11月25日 星期三 14时01分47秒
- *   修改日期：2020年11月25日 星期三 16时37分03秒
+ *   修改日期：2020年11月25日 星期三 17时39分54秒
  *   描    述：
  *
  *================================================================*/
@@ -51,57 +51,11 @@ static struct rt_semaphore rx_wait;
 /* initialize the interface */
 static rt_err_t rt_stm32_eth_init(rt_device_t dev)
 {
+#if 0
+#if LWIP_ARP || LWIP_ETHERNET
+	uint32_t regvalue = 0;
 	struct rt_stm32_eth *eth = (struct rt_stm32_eth *)dev->user_data;
 	struct netif *netif = eth->parent.netif;
-
-	uint32_t regvalue = 0;
-	HAL_StatusTypeDef hal_eth_init_status;
-	uint8_t MACAddr[6] ;
-
-	heth.Instance = ETH;
-	heth.Init.AutoNegotiation = ETH_AUTONEGOTIATION_ENABLE;
-	heth.Init.PhyAddress = LAN8742A_PHY_ADDRESS;
-	MACAddr[0] = 0x00;
-	MACAddr[1] = 0x80;
-	MACAddr[2] = 0xE1;
-	MACAddr[3] = 0x00;
-	MACAddr[4] = 0x00;
-	MACAddr[5] = 0x00;
-	heth.Init.MACAddr = &MACAddr[0];
-
-	heth.Init.RxMode = ETH_RXINTERRUPT_MODE;
-	heth.Init.ChecksumMode = ETH_CHECKSUM_BY_HARDWARE;
-	heth.Init.MediaInterface = ETH_MEDIA_INTERFACE_RMII;
-
-	/* USER CODE BEGIN MACADDRESS */
-
-	MACAddr[3] = get_u8_b2_from_u32(HAL_GetUIDw0());
-	MACAddr[4] = get_u8_b1_from_u32(HAL_GetUIDw0());
-	MACAddr[5] = get_u8_b0_from_u32(HAL_GetUIDw0());
-
-	eth->dev_addr[0] = heth.Init.MACAddr[0];
-	eth->dev_addr[1] = heth.Init.MACAddr[1];
-	eth->dev_addr[2] = heth.Init.MACAddr[2];
-	eth->dev_addr[3] = heth.Init.MACAddr[3];
-	eth->dev_addr[4] = heth.Init.MACAddr[4];
-	eth->dev_addr[5] = heth.Init.MACAddr[5];
-
-	/* USER CODE END MACADDRESS */
-
-	hal_eth_init_status = HAL_ETH_Init(&heth);
-
-	if (hal_eth_init_status == HAL_OK) {
-		/* Set netif link flag */
-		netif->flags |= NETIF_FLAG_LINK_UP;
-	}
-
-	/* Initialize Tx Descriptors list: Chain Mode */
-	HAL_ETH_DMATxDescListInit(&heth, DMATxDscrTab, &Tx_Buff[0][0], ETH_TXBUFNB);
-
-	/* Initialize Rx Descriptors list: Chain Mode  */
-	HAL_ETH_DMARxDescListInit(&heth, DMARxDscrTab, &Rx_Buff[0][0], ETH_RXBUFNB);
-
-#if LWIP_ARP || LWIP_ETHERNET
 
 	/* set MAC hardware address length */
 	netif->hwaddr_len = ETH_HWADDR_LEN;
@@ -125,12 +79,7 @@ static rt_err_t rt_stm32_eth_init(rt_device_t dev)
 	netif->flags |= NETIF_FLAG_BROADCAST;
 #endif /* LWIP_ARP */
 
-	/* create a binary semaphore used for informing ethernetif of frame reception */
 
-	/* create the task that handles the ETH_MAC */
-	/* USER CODE BEGIN OS_THREAD_DEF_CREATE_CMSIS_RTOS_V1 */
-
-	/* USER CODE END OS_THREAD_DEF_CREATE_CMSIS_RTOS_V1 */
 	/* Enable MAC and DMA transmission and reception */
 	HAL_ETH_Start(&heth);
 
@@ -158,6 +107,7 @@ static rt_err_t rt_stm32_eth_init(rt_device_t dev)
 	/* USER CODE BEGIN LOW_LEVEL_INIT */
 
 	/* USER CODE END LOW_LEVEL_INIT */
+#endif
 
 	return RT_EOK;
 }
@@ -226,6 +176,7 @@ void HAL_ETH_RxCpltCallback(ETH_HandleTypeDef *heth)
 /* reception packet. */
 struct pbuf *rt_stm32_eth_rx(rt_device_t dev)
 {
+#if 0
 	struct pbuf *p = NULL;
 	struct pbuf *q = NULL;
 	uint16_t len = 0;
@@ -304,12 +255,16 @@ struct pbuf *rt_stm32_eth_rx(rt_device_t dev)
 	}
 
 	return p;
+#else
+	return NULL;
+#endif
 }
 
 /* ethernet device interface */
 /* transmit packet. */
 rt_err_t rt_stm32_eth_tx( rt_device_t dev, struct pbuf *p)
 {
+#if 0
 	err_t errval;
 	struct pbuf *q;
 	uint8_t *buffer = (uint8_t *)(heth.TxDesc->Buffer1Addr);
@@ -320,6 +275,8 @@ rt_err_t rt_stm32_eth_tx( rt_device_t dev, struct pbuf *p)
 	uint32_t payloadoffset = 0;
 	DmaTxDesc = heth.TxDesc;
 	bufferoffset = 0;
+
+	return ERR_OK;
 
 	/* copy frame from pbufs to driver buffers */
 	for(q = p; q != NULL; q = q->next) {
@@ -378,10 +335,26 @@ error:
 	}
 
 	return errval;
+#else
+	return ERR_OK;
+#endif
 }
 
 void rt_hw_stm32_eth_init(void)
 {
+	stm32_eth_device.dev_addr[0] = heth.Init.MACAddr[0];
+	stm32_eth_device.dev_addr[1] = heth.Init.MACAddr[1];
+	stm32_eth_device.dev_addr[2] = heth.Init.MACAddr[2];
+	stm32_eth_device.dev_addr[3] = heth.Init.MACAddr[3];
+	stm32_eth_device.dev_addr[4] = heth.Init.MACAddr[4];
+	stm32_eth_device.dev_addr[5] = heth.Init.MACAddr[5];
+
+	/* Initialize Tx Descriptors list: Chain Mode */
+	HAL_ETH_DMATxDescListInit(&heth, DMATxDscrTab, &Tx_Buff[0][0], ETH_TXBUFNB);
+
+	/* Initialize Rx Descriptors list: Chain Mode  */
+	HAL_ETH_DMARxDescListInit(&heth, DMARxDscrTab, &Rx_Buff[0][0], ETH_RXBUFNB);
+
 	stm32_eth_device.parent.parent.init = rt_stm32_eth_init;
 	stm32_eth_device.parent.parent.open = rt_stm32_eth_open;
 	stm32_eth_device.parent.parent.close = rt_stm32_eth_close;
@@ -398,5 +371,5 @@ void rt_hw_stm32_eth_init(void)
 
 	/* register eth device */
 	eth_device_init(&(stm32_eth_device.parent), "e0");
-	start_eth_link_monitor(&(stm32_eth_device.parent));
+	//start_eth_link_monitor(&(stm32_eth_device.parent));
 }
