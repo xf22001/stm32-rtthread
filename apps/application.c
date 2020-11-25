@@ -93,7 +93,29 @@ static void update_work_led(void)
 	__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3, duty_cycle);
 }
 
-static rt_tick_enable = 0;
+static int rt_tick_enable = 0;
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM1) {
+	HAL_IncTick();
+	if(rt_tick_enable == 1) {
+		/* enter interrupt */
+		rt_interrupt_enter();
+
+		rt_tick_increase();
+
+		/* leave interrupt */
+		rt_interrupt_leave();
+	}
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
 
 /**
  * This is the timer interrupt service routine.
