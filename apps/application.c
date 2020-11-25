@@ -93,17 +93,25 @@ static void update_work_led(void)
 	__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_3, duty_cycle);
 }
 
-void os_tick_increase(void)
+static rt_tick_enable = 0;
+
+/**
+ * This is the timer interrupt service routine.
+ *
+ */
+void SysTick_Handler(void)
 {
-	//if(rt_thread_self() != RT_NULL) {
-	//	/* enter interrupt */
-	//	rt_interrupt_enter();
+	HAL_IncTick();
 
-	//	rt_tick_increase();
+	if(rt_tick_enable == 1) {
+		/* enter interrupt */
+		rt_interrupt_enter();
 
-	//	/* leave interrupt */
-	//	rt_interrupt_leave();
-	//}
+		rt_tick_increase();
+
+		/* leave interrupt */
+		rt_interrupt_leave();
+	}
 }
 
 static void idle()
@@ -120,6 +128,8 @@ static void idle()
 
 void rt_init_thread_entry(void *parameter)
 {
+	rt_tick_enable = 1;
+
 #ifdef RT_USING_COMPONENTS_INIT
 	/* RT-Thread components initialization */
 	rt_components_init();
@@ -176,10 +186,6 @@ void rt_init_thread_entry(void *parameter)
 	/* init finsh */
 	finsh_system_init();
 #endif
-	rt_kprintf("test start!\n");
-	rt_thread_mdelay(1000);
-	rt_kprintf("test end!\n");
-
 	idle();
 }
 

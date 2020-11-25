@@ -6,7 +6,7 @@
  *   文件名称：serial.c
  *   创 建 者：肖飞
  *   创建日期：2020年11月24日 星期二 10时38分16秒
- *   修改日期：2020年11月24日 星期二 15时35分55秒
+ *   修改日期：2020年11月25日 星期三 11时37分02秒
  *   描    述：
  *
  *================================================================*/
@@ -89,7 +89,13 @@ static rt_size_t rt_serial_read(rt_device_t dev, rt_off_t pos, void *buffer, rt_
 					uart->int_rx->read_index = 0;
 				}
 			} else {
+				rt_err_t result = RT_EOK;
 				HAL_UART_Receive_DMA(uart->huart, &uart->int_rx->rx_buffer[uart->int_rx->save_index], 1);
+
+				result = rt_sem_take(uart->int_rx->sem, rt_tick_from_millisecond(1000));
+
+				if (result != RT_EOK) {
+				}
 
 				/* set error code */
 				//err_code = -RT_EEMPTY;
@@ -258,6 +264,9 @@ rt_err_t rt_hw_serial_register(rt_device_t device, const char *name, rt_uint32_t
 	device->write 		= rt_serial_write;
 	device->control 	= rt_serial_control;
 	device->user_data	= serial;
+
+	serial->int_rx->sem = rt_sem_create(name, 0, RT_IPC_FLAG_FIFO);
+	RT_ASSERT(serial->int_rx->sem != RT_NULL);
 
 	/* register a character device */
 	return rt_device_register(device, name, RT_DEVICE_FLAG_RDWR | flag);

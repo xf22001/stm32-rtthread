@@ -94,6 +94,7 @@ SRC_FILES +=$(RTT_ROOT)/components/net/sal_socket/src/sal_socket.c
 SRC_FILES +=$(RTT_ROOT)/libcpu/arm/common/backtrace.c
 SRC_FILES +=$(RTT_ROOT)/libcpu/arm/common/div0.c
 SRC_FILES +=$(RTT_ROOT)/libcpu/arm/common/showmem.c
+SRC_FILES +=$(RTT_ROOT)/libcpu/arm/cortex-m3/context_gcc.S
 SRC_FILES +=$(RTT_ROOT)/libcpu/arm/cortex-m3/cpuport.c
 SRC_FILES +=$(RTT_ROOT)/src/clock.c
 SRC_FILES +=$(RTT_ROOT)/src/components.c
@@ -109,5 +110,3 @@ SRC_FILES +=$(RTT_ROOT)/src/scheduler.c
 SRC_FILES +=$(RTT_ROOT)/src/signal.c
 SRC_FILES +=$(RTT_ROOT)/src/thread.c
 SRC_FILES +=$(RTT_ROOT)/src/timer.c
-
-ASM_FILES :=$(RTT_ROOT)/libcpu/arm/cortex-m3/context_gcc.S

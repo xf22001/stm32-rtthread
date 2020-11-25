@@ -6,7 +6,7 @@
 #   文件名称：user.mk
 #   创 建 者：肖飞
 #   创建日期：2019年10月25日 星期五 13时04分38秒
-#   修改日期：2020年11月24日 星期二 14时12分56秒
+#   修改日期：2020年11月25日 星期三 11时52分04秒
 #   描    述：
 #
 #================================================================
@@ -19,7 +19,11 @@ USER_C_INCLUDES += -Iapps/drivers
 
 C_INCLUDES += $(USER_C_INCLUDES)
 
-USER_C_SOURCES += $(SRC_FILES)
+SRC_FILES := $(filter-out $(BSP_ROOT)/Drivers/, $(SRC_FILES))
+SRC_FILES := $(filter-out $(BSP_ROOT)/Libraries/, $(SRC_FILES))
+SRC_FILES := $(filter-out $(BSP_ROOT)/applications/, $(SRC_FILES))
+
+USER_C_SOURCES += $(filter-out %.S, $(SRC_FILES))
 USER_C_SOURCES += apps/startup.c
 USER_C_SOURCES += apps/application.c
 USER_C_SOURCES += apps/drivers/usart.c
@@ -27,7 +31,7 @@ USER_C_SOURCES += apps/drivers/serial.c
 
 C_SOURCES += $(USER_C_SOURCES)
 
-USER_ASM_SOURCES += $(ASM_FILES)
+USER_ASM_SOURCES += $(filter %.S, $(SRC_FILES))
 ASM_SOURCES_S += $(USER_ASM_SOURCES)
 
 USER_CFLAGS += $(DEFINES)

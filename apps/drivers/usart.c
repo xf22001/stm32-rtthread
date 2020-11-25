@@ -6,7 +6,7 @@
  *   文件名称：usart.c
  *   创 建 者：肖飞
  *   创建日期：2020年11月24日 星期二 10时26分25秒
- *   修改日期：2020年11月24日 星期二 15时20分12秒
+ *   修改日期：2020年11月25日 星期三 11时20分15秒
  *   描    述：
  *
  *================================================================*/
@@ -15,8 +15,8 @@
 
 #ifdef RT_USING_UART1
 extern UART_HandleTypeDef huart1;
-static struct stm32_serial_int_rx uart1_int_rx;
-static struct stm32_serial_dma_tx uart1_dma_tx;
+static struct stm32_serial_int_rx uart1_int_rx = {0};
+static struct stm32_serial_dma_tx uart1_dma_tx = {0};
 static struct rt_device uart1_device;
 static struct stm32_serial_device uart1 = {
 	&huart1,
@@ -27,8 +27,8 @@ static struct stm32_serial_device uart1 = {
 
 #ifdef RT_USING_UART3
 extern UART_HandleTypeDef huart3;
-static struct stm32_serial_int_rx uart3_int_rx;
-static struct stm32_serial_dma_tx uart3_dma_tx;
+static struct stm32_serial_int_rx uart3_int_rx = {0};
+static struct stm32_serial_dma_tx uart3_dma_tx = {0};
 static struct rt_device uart3_device;
 static struct stm32_serial_device uart3 = {
 	&huart3,
@@ -93,6 +93,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 	if(huart == uart1.huart) {
 		rt_hw_serial_rx_isr(&uart1_device);
+
+		if(uart1.int_rx->sem != RT_NULL) {
+			rt_sem_release(uart1.int_rx->sem);
+		}
 	}
 
 #endif
@@ -101,6 +105,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 	if(huart == uart3.huart) {
 		rt_hw_serial_rx_isr(&uart3_device);
+
+		if(uart3.int_rx->sem != RT_NULL) {
+			rt_sem_release(uart3.int_rx->sem);
+		}
 	}
 
 #endif

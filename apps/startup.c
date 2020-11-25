@@ -55,17 +55,6 @@ void assert_failed(u8 *file, u32 line)
  */
 void rtthread_startup(void)
 {
-	rt_hw_usart_init();
-
-#ifdef RT_USING_CONSOLE
-	rt_console_set_device(CONSOLE_DEVICE);
-#endif
-
-	/* show version */
-	rt_show_version();
-
-	/* init timer system */
-	rt_system_timer_init();
 
 #ifdef RT_USING_HEAP
 #if STM32_EXT_SRAM
@@ -81,6 +70,17 @@ void rtthread_startup(void)
 #endif
 #endif
 #endif
+	rt_hw_usart_init();
+
+#ifdef RT_USING_CONSOLE
+	rt_console_set_device(CONSOLE_DEVICE);
+#endif
+
+	/* show version */
+	rt_show_version();
+
+	/* init timer system */
+	rt_system_timer_init();
 
 	/* init scheduler system */
 	rt_system_scheduler_init();
