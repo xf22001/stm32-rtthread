@@ -6,7 +6,7 @@
  *   文件名称：eth.c
  *   创 建 者：肖飞
  *   创建日期：2020年11月25日 星期三 14时01分47秒
- *   修改日期：2020年11月25日 星期三 17时39分54秒
+ *   修改日期：2020年11月25日 星期三 17时50分03秒
  *   描    述：
  *
  *================================================================*/
@@ -44,7 +44,7 @@ struct rt_stm32_eth {
 	/* interface address info. */
 	rt_uint8_t  dev_addr[MAX_ADDR_LEN];			/* hw address	*/
 };
-static struct rt_stm32_eth stm32_eth_device;
+static struct rt_stm32_eth stm32_eth_device = {0};
 static struct rt_semaphore rx_wait;
 
 /* RT-Thread Device Interface */
