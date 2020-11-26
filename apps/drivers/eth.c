@@ -6,7 +6,7 @@
  *   文件名称：eth.c
  *   创 建 者：肖飞
  *   创建日期：2020年11月25日 星期三 14时01分47秒
- *   修改日期：2020年11月26日 星期四 14时46分02秒
+ *   修改日期：2020年11月26日 星期四 17时28分08秒
  *   描    述：
  *
  *================================================================*/
@@ -184,13 +184,12 @@ struct pbuf *rt_stm32_eth_rx(rt_device_t dev)
 	uint32_t byteslefttocopy = 0;
 	uint32_t i = 0;
 
-	if(rt_sem_take(&rx_wait, 250) != RT_EOK) {
-		return NULL;
-	}
-
 	/* get received frame */
 	if (HAL_ETH_GetReceivedFrame_IT(&heth) != HAL_OK) {
-		return NULL;
+
+		if(rt_sem_take(&rx_wait, RT_WAITING_FOREVER) != RT_EOK) {
+			return NULL;
+		}
 	}
 
 	/* Obtain the size of the packet and put it into the "len" variable. */
@@ -251,7 +250,6 @@ struct pbuf *rt_stm32_eth_rx(rt_device_t dev)
 		heth.Instance->DMARPDR = 0;
 	}
 
-	rt_kprintf("recv len:%d\n", p->len);
 	return p;
 }
 
