@@ -42,6 +42,9 @@
 
 extern IWDG_HandleTypeDef hiwdg;
 extern TIM_HandleTypeDef htim4;
+extern RNG_HandleTypeDef hrng;
+
+void rt_hw_stm32_eth_init(void);
 
 typedef enum {
 	PWM_COMPARE_COUNT_UP = 0,
@@ -138,6 +141,11 @@ void SysTick_Handler(void)
 		/* leave interrupt */
 		rt_interrupt_leave();
 	}
+}
+
+int rand(void)
+{
+	return HAL_RNG_GetRandomNumber(&hrng);
 }
 
 static void idle()

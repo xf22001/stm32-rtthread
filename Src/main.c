@@ -26,6 +26,7 @@
 #include "fatfs.h"
 #include "iwdg.h"
 #include "mbedtls.h"
+#include "rng.h"
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
@@ -113,6 +114,7 @@ int main(void)
   MX_USART6_UART_Init();
   MX_MBEDTLS_Init();
   MX_ETH_Init();
+  MX_RNG_Init();
   /* USER CODE BEGIN 2 */
 
   rtthread_startup();

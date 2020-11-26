@@ -58,10 +58,10 @@ b main
 #		c
 #	end
 
-#b HAL_IWDG_Refresh
-#	commands
-#		c
-#	end
+b rt_stm32_eth_rx
+	commands
+		c
+	end
 
 monitor reset
 continue

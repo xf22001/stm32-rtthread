@@ -6,7 +6,7 @@
  *   文件名称：eth.c
  *   创 建 者：肖飞
  *   创建日期：2020年11月25日 星期三 14时01分47秒
- *   修改日期：2020年11月25日 星期三 17时50分03秒
+ *   修改日期：2020年11月26日 星期四 14时46分02秒
  *   描    述：
  *
  *================================================================*/
@@ -51,7 +51,6 @@ static struct rt_semaphore rx_wait;
 /* initialize the interface */
 static rt_err_t rt_stm32_eth_init(rt_device_t dev)
 {
-#if 0
 #if LWIP_ARP || LWIP_ETHERNET
 	uint32_t regvalue = 0;
 	struct rt_stm32_eth *eth = (struct rt_stm32_eth *)dev->user_data;
@@ -107,7 +106,6 @@ static rt_err_t rt_stm32_eth_init(rt_device_t dev)
 	/* USER CODE BEGIN LOW_LEVEL_INIT */
 
 	/* USER CODE END LOW_LEVEL_INIT */
-#endif
 
 	return RT_EOK;
 }
@@ -176,7 +174,6 @@ void HAL_ETH_RxCpltCallback(ETH_HandleTypeDef *heth)
 /* reception packet. */
 struct pbuf *rt_stm32_eth_rx(rt_device_t dev)
 {
-#if 0
 	struct pbuf *p = NULL;
 	struct pbuf *q = NULL;
 	uint16_t len = 0;
@@ -254,17 +251,14 @@ struct pbuf *rt_stm32_eth_rx(rt_device_t dev)
 		heth.Instance->DMARPDR = 0;
 	}
 
+	rt_kprintf("recv len:%d\n", p->len);
 	return p;
-#else
-	return NULL;
-#endif
 }
 
 /* ethernet device interface */
 /* transmit packet. */
-rt_err_t rt_stm32_eth_tx( rt_device_t dev, struct pbuf *p)
+rt_err_t rt_stm32_eth_tx(rt_device_t dev, struct pbuf *p)
 {
-#if 0
 	err_t errval;
 	struct pbuf *q;
 	uint8_t *buffer = (uint8_t *)(heth.TxDesc->Buffer1Addr);
@@ -275,8 +269,6 @@ rt_err_t rt_stm32_eth_tx( rt_device_t dev, struct pbuf *p)
 	uint32_t payloadoffset = 0;
 	DmaTxDesc = heth.TxDesc;
 	bufferoffset = 0;
-
-	return ERR_OK;
 
 	/* copy frame from pbufs to driver buffers */
 	for(q = p; q != NULL; q = q->next) {
@@ -335,9 +327,6 @@ error:
 	}
 
 	return errval;
-#else
-	return ERR_OK;
-#endif
 }
 
 void rt_hw_stm32_eth_init(void)
@@ -371,5 +360,5 @@ void rt_hw_stm32_eth_init(void)
 
 	/* register eth device */
 	eth_device_init(&(stm32_eth_device.parent), "e0");
-	//start_eth_link_monitor(&(stm32_eth_device.parent));
+	start_eth_link_monitor(&(stm32_eth_device.parent));
 }

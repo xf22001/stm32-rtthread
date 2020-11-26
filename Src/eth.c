@@ -24,6 +24,8 @@
 
 #include "os_utils.h"
 
+static uint8_t MACAddr[6] ;
+
 /* USER CODE END 0 */
 
 ETH_HandleTypeDef heth;
@@ -35,20 +37,21 @@ void MX_ETH_Init(void)
   heth.Instance = ETH;
   heth.Init.AutoNegotiation = ETH_AUTONEGOTIATION_ENABLE;
   heth.Init.PhyAddress = LAN8742A_PHY_ADDRESS;
-  heth.Init.MACAddr[0] =   0x00;
-  heth.Init.MACAddr[1] =   0x80;
-  heth.Init.MACAddr[2] =   0xE1;
-  heth.Init.MACAddr[3] =   0x00;
-  heth.Init.MACAddr[4] =   0x00;
-  heth.Init.MACAddr[5] =   0x00;
-  heth.Init.RxMode = ETH_RXPOLLING_MODE;
+  MACAddr[0] =  0x00;
+  MACAddr[1] =  0x80;
+  MACAddr[2] =  0xE1;
+  MACAddr[3] =  0x00;
+  MACAddr[4] =  0x00;
+  MACAddr[5] =  0x00;
+  heth.Init.RxMode = ETH_RXINTERRUPT_MODE;
   heth.Init.ChecksumMode = ETH_CHECKSUM_BY_HARDWARE;
   heth.Init.MediaInterface = ETH_MEDIA_INTERFACE_RMII;
 
   /* USER CODE BEGIN MACADDRESS */
-  heth.Init.MACAddr[3] =  get_u8_b2_from_u32(HAL_GetUIDw0());
-  heth.Init.MACAddr[4] =  get_u8_b1_from_u32(HAL_GetUIDw0());
-  heth.Init.MACAddr[5] =  get_u8_b0_from_u32(HAL_GetUIDw0());
+  MACAddr[3] = get_u8_b2_from_u32(HAL_GetUIDw0());
+  MACAddr[4] = get_u8_b1_from_u32(HAL_GetUIDw0());
+  MACAddr[5] = get_u8_b0_from_u32(HAL_GetUIDw0());
+  heth.Init.MACAddr = &MACAddr;
     
   /* USER CODE END MACADDRESS */
 
