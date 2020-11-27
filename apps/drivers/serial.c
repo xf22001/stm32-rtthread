@@ -6,7 +6,7 @@
  *   文件名称：serial.c
  *   创 建 者：肖飞
  *   创建日期：2020年11月24日 星期二 10时38分16秒
- *   修改日期：2020年11月25日 星期三 11时37分02秒
+ *   修改日期：2020年11月27日 星期五 09时58分26秒
  *   描    述：
  *
  *================================================================*/
@@ -20,7 +20,7 @@
 /* RT-Thread Device Interface */
 static rt_err_t rt_serial_init (rt_device_t dev)
 {
-	struct stm32_serial_device *uart = (struct stm32_serial_device *) dev->user_data;
+	struct stm32_serial_device *uart = (struct stm32_serial_device *)dev->user_data;
 
 	if (!(dev->flag & RT_DEVICE_FLAG_ACTIVATED)) {
 		if (dev->flag & RT_DEVICE_FLAG_INT_RX) {
@@ -43,7 +43,8 @@ static rt_err_t rt_serial_init (rt_device_t dev)
 
 		/* Enable USART */
 		dev->flag |= RT_DEVICE_FLAG_ACTIVATED;
-		HAL_UART_Receive_DMA(uart->huart, &uart->int_rx->rx_buffer[uart->int_rx->read_index], 1);
+		HAL_UART_AbortReceive(uart->huart);
+		HAL_UART_Receive_DMA(uart->huart, &uart->int_rx->rx_buffer[uart->int_rx->read_index], UART_RX_DMA_BUFFER_SIZE);
 	}
 
 	return RT_EOK;
@@ -57,6 +58,34 @@ static rt_err_t rt_serial_open(rt_device_t dev, rt_uint16_t oflag)
 static rt_err_t rt_serial_close(rt_device_t dev)
 {
 	return RT_EOK;
+}
+
+static uint16_t get_uart_received(struct stm32_serial_device *uart)
+{
+	return (uart->huart->RxXferSize - __HAL_DMA_GET_COUNTER(uart->huart->hdmarx));
+}
+
+static void uart_dma_rx_update(struct stm32_serial_device *uart)
+{
+	rt_uint32_t count = get_uart_received(uart);
+
+	while(count != 0) {
+		uart->int_rx->save_index++;
+		count--;
+
+		if (uart->int_rx->save_index >= UART_RX_BUFFER_SIZE) {
+			uart->int_rx->save_index++;
+		}
+
+		/* if the next position is read index, discard this 'read char' */
+		if (uart->int_rx->save_index == uart->int_rx->read_index) {
+			uart->int_rx->read_index++;
+
+			if (uart->int_rx->read_index >= UART_RX_BUFFER_SIZE) {
+				uart->int_rx->read_index = 0;
+			}
+		}
+	}
 }
 
 static rt_size_t rt_serial_read(rt_device_t dev, rt_off_t pos, void *buffer, rt_size_t size)
@@ -77,36 +106,38 @@ static rt_size_t rt_serial_read(rt_device_t dev, rt_off_t pos, void *buffer, rt_
 			/* disable interrupt */
 			level = rt_hw_interrupt_disable();
 
-			if (uart->int_rx->read_index != uart->int_rx->save_index) {
+			uart_dma_rx_update(uart);
+
+			if (uart->int_rx->read_index != uart->int_rx->save_index) {//有数据
 				/* read a character */
 				*ptr++ = uart->int_rx->rx_buffer[uart->int_rx->read_index];
 				size--;
 
 				/* move to next position */
-				uart->int_rx->read_index ++;
+				uart->int_rx->read_index++;
 
 				if (uart->int_rx->read_index >= UART_RX_BUFFER_SIZE) {
 					uart->int_rx->read_index = 0;
 				}
-			} else {
-				rt_err_t result = RT_EOK;
-				HAL_UART_Receive_DMA(uart->huart, &uart->int_rx->rx_buffer[uart->int_rx->save_index], 1);
-
-				result = rt_sem_take(uart->int_rx->sem, rt_tick_from_millisecond(1000));
-
-				if (result != RT_EOK) {
-				}
-
-				/* set error code */
-				//err_code = -RT_EEMPTY;
-
-				/* enable interrupt */
-				//rt_hw_interrupt_enable(level);
-				//break;
 			}
 
 			/* enable interrupt */
 			rt_hw_interrupt_enable(level);
+
+			HAL_UART_AbortReceive(uart->huart);
+			HAL_UART_Receive_DMA(uart->huart, &uart->int_rx->rx_buffer[uart->int_rx->save_index], UART_RX_DMA_BUFFER_SIZE);
+
+			if(size != 0) {
+				rt_err_t result = RT_EOK;
+				result = rt_sem_take(uart->int_rx->sem, rt_tick_from_millisecond(5));
+
+				if (result != RT_EOK) {//超时
+					if((rt_uint32_t)ptr - (rt_uint32_t)buffer != 0) {//如果有数据，立即返回
+						break;
+					} else {//一直等待有数据
+					}
+				}
+			}
 		}
 	} else {
 		/* polling mode */
@@ -141,7 +172,7 @@ static rt_size_t rt_serial_write(rt_device_t dev, rt_off_t pos, const void *buff
 
 		/* allocate a data node */
 		struct stm32_serial_data_node *data_node = (struct stm32_serial_data_node *)
-		        rt_mp_alloc (&(uart->dma_tx->data_node_mp), RT_WAITING_FOREVER);
+		        rt_mp_alloc(&(uart->dma_tx->data_node_mp), RT_WAITING_FOREVER);
 
 		if (data_node == RT_NULL) {
 			/* set error code */
@@ -284,25 +315,16 @@ void rt_hw_serial_rx_isr(rt_device_t device)
 	/* disable interrupt */
 	level = rt_hw_interrupt_disable();
 
-	uart->int_rx->save_index++;
-
-	if (uart->int_rx->save_index >= UART_RX_BUFFER_SIZE) {
-		uart->int_rx->save_index = 0;
-	}
-
-	/* if the next position is read index, discard this 'read char' */
-	if (uart->int_rx->save_index == uart->int_rx->read_index) {
-		uart->int_rx->read_index++;
-
-		if (uart->int_rx->read_index >= UART_RX_BUFFER_SIZE) {
-			uart->int_rx->read_index = 0;
-		}
-	}
+	uart_dma_rx_update(uart);
 
 	/* enable interrupt */
 	rt_hw_interrupt_enable(level);
 
-	HAL_UART_Receive_DMA(uart->huart, &uart->int_rx->rx_buffer[uart->int_rx->save_index], 1);
+	if(uart->int_rx->sem != RT_NULL) {
+		rt_sem_release(uart->int_rx->sem);
+	}
+
+	HAL_UART_Receive_DMA(uart->huart, &uart->int_rx->rx_buffer[uart->int_rx->save_index], UART_RX_DMA_BUFFER_SIZE);
 
 	/* invoke callback */
 	if (device->rx_indicate != RT_NULL) {

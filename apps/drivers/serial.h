@@ -6,7 +6,7 @@
  *   文件名称：serial.h
  *   创 建 者：肖飞
  *   创建日期：2020年11月24日 星期二 10时42分10秒
- *   修改日期：2020年11月25日 星期三 13时19分36秒
+ *   修改日期：2020年11月27日 星期五 09时13分50秒
  *   描    述：
  *
  *================================================================*/
@@ -26,8 +26,9 @@ extern "C"
 #endif
 
 
-#define UART_RX_BUFFER_SIZE 64
-#define UART_TX_DMA_NODE_SIZE	4
+#define UART_RX_BUFFER_SIZE 256
+#define UART_RX_DMA_BUFFER_SIZE (UART_RX_BUFFER_SIZE / 4)
+#define UART_TX_DMA_NODE_SIZE 4
 
 /* data node for Tx Mode */
 struct stm32_serial_data_node

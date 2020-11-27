@@ -94,9 +94,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	if(huart == uart1.huart) {
 		rt_hw_serial_rx_isr(&uart1_device);
 
-		if(uart1.int_rx->sem != RT_NULL) {
-			rt_sem_release(uart1.int_rx->sem);
-		}
 	}
 
 #endif
@@ -105,10 +102,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 	if(huart == uart3.huart) {
 		rt_hw_serial_rx_isr(&uart3_device);
-
-		if(uart3.int_rx->sem != RT_NULL) {
-			rt_sem_release(uart3.int_rx->sem);
-		}
 	}
 
 #endif

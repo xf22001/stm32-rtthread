@@ -6,7 +6,7 @@
  *   文件名称：eth.c
  *   创 建 者：肖飞
  *   创建日期：2020年11月25日 星期三 14时01分47秒
- *   修改日期：2020年11月26日 星期四 17时28分08秒
+ *   修改日期：2020年11月27日 星期五 08时49分53秒
  *   描    述：
  *
  *================================================================*/
@@ -189,6 +189,9 @@ struct pbuf *rt_stm32_eth_rx(rt_device_t dev)
 
 		if(rt_sem_take(&rx_wait, RT_WAITING_FOREVER) != RT_EOK) {
 			return NULL;
+		} else {
+			if(rt_sem_control(&rx_wait, RT_IPC_CMD_RESET, 0) != RT_EOK) {
+			}
 		}
 	}
 
@@ -354,7 +357,7 @@ void rt_hw_stm32_eth_init(void)
 	stm32_eth_device.parent.eth_tx = rt_stm32_eth_tx;
 
 	/* init tx semaphore */
-	rt_sem_init(&rx_wait, "rx_wait", 1, RT_IPC_FLAG_FIFO);
+	rt_sem_init(&rx_wait, "rx_wait", 0, RT_IPC_FLAG_FIFO);
 
 	/* register eth device */
 	eth_device_init(&(stm32_eth_device.parent), "e0");
