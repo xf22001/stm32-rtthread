@@ -44,7 +44,6 @@ SRC_FILES +=$(BSP_ROOT)/Libraries/STM32F2xx_StdPeriph_Driver/src/stm32f2xx_tim.c
 SRC_FILES +=$(BSP_ROOT)/Libraries/STM32F2xx_StdPeriph_Driver/src/stm32f2xx_usart.c
 SRC_FILES +=$(BSP_ROOT)/Libraries/STM32F2xx_StdPeriph_Driver/src/stm32f2xx_wwdg.c
 SRC_FILES +=$(BSP_ROOT)/applications/application.c
-SRC_FILES +=$(BSP_ROOT)/applications/eth_link_monitor.c
 SRC_FILES +=$(BSP_ROOT)/applications/startup.c
 SRC_FILES +=$(BSP_ROOT)/packages/at_device-latest/class/sim76xx/at_device_sim76xx.c
 SRC_FILES +=$(BSP_ROOT)/packages/at_device-latest/class/sim76xx/at_socket_sim76xx.c
