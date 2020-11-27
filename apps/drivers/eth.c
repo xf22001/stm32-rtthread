@@ -6,7 +6,7 @@
  *   文件名称：eth.c
  *   创 建 者：肖飞
  *   创建日期：2020年11月25日 星期三 14时01分47秒
- *   修改日期：2020年11月27日 星期五 08时49分53秒
+ *   修改日期：2020年11月27日 星期五 12时17分05秒
  *   描    述：
  *
  *================================================================*/
@@ -153,7 +153,7 @@ static rt_err_t rt_stm32_eth_control(rt_device_t dev, int cmd, void *args)
 	return RT_EOK;
 }
 
-void show_frame(struct pbuf *q)
+static void show_frame(struct pbuf *q)
 {
 	int i = 0;
 	char *ptr = q->payload;
@@ -165,15 +165,16 @@ void show_frame(struct pbuf *q)
 	rt_kprintf("\n");
 }
 
-
 void HAL_ETH_RxCpltCallback(ETH_HandleTypeDef *heth)
 {
 	rt_sem_release(&rx_wait);
 }
 
 /* reception packet. */
-struct pbuf *rt_stm32_eth_rx(rt_device_t dev)
+static struct pbuf *rt_stm32_eth_rx(rt_device_t dev)
 {
+	struct rt_stm32_eth *eth = (struct rt_stm32_eth *)dev->user_data;
+
 	struct pbuf *p = NULL;
 	struct pbuf *q = NULL;
 	uint16_t len = 0;
@@ -184,15 +185,19 @@ struct pbuf *rt_stm32_eth_rx(rt_device_t dev)
 	uint32_t byteslefttocopy = 0;
 	uint32_t i = 0;
 
-	/* get received frame */
-	if (HAL_ETH_GetReceivedFrame_IT(&heth) != HAL_OK) {
+	if(eth->parent.link_status == 0) {
+		return NULL;
+	}
 
-		if(rt_sem_take(&rx_wait, RT_WAITING_FOREVER) != RT_EOK) {
+	while(rt_sem_take(&rx_wait, rt_tick_from_millisecond(50)) != RT_EOK) {
+		if(eth->parent.link_changed == 1) {
 			return NULL;
-		} else {
-			if(rt_sem_control(&rx_wait, RT_IPC_CMD_RESET, 0) != RT_EOK) {
-			}
 		}
+	}
+
+	/* get received frame */
+	if (HAL_ETH_GetReceivedFrame(&heth) != HAL_OK) {
+		return NULL;
 	}
 
 	/* Obtain the size of the packet and put it into the "len" variable. */
@@ -258,7 +263,7 @@ struct pbuf *rt_stm32_eth_rx(rt_device_t dev)
 
 /* ethernet device interface */
 /* transmit packet. */
-rt_err_t rt_stm32_eth_tx(rt_device_t dev, struct pbuf *p)
+static rt_err_t rt_stm32_eth_tx(rt_device_t dev, struct pbuf *p)
 {
 	err_t errval;
 	struct pbuf *q;

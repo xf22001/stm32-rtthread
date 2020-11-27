@@ -6,7 +6,7 @@
  *   文件名称：eth_link_monitor.c
  *   创 建 者：肖飞
  *   创建日期：2020年11月19日 星期四 13时58分57秒
- *   修改日期：2020年11月26日 星期四 12时24分46秒
+ *   修改日期：2020年11月27日 星期五 11时52分36秒
  *   描    述：
  *
  *================================================================*/
@@ -34,6 +34,7 @@ static void eth_link_thread_entry(void *parameter)
 
 		if(link_status != phy_status) {
 			rt_kprintf("phy_status:%d\n", phy_status);
+
 			link_status = phy_status;
 			eth_device_linkchange(dev, link_status);
 		}

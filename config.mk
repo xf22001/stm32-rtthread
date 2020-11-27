@@ -22,11 +22,10 @@ CPPPATHS :=-I$(BSP_ROOT) \
 	-I$(RTT_ROOT)/components/libc/compilers/newlib \
 	-I$(RTT_ROOT)/components/net/at/at_socket \
 	-I$(RTT_ROOT)/components/net/at/include \
-	-I$(RTT_ROOT)/components/net/lwip-2.0.2/src \
-	-I$(RTT_ROOT)/components/net/lwip-2.0.2/src/arch/include \
-	-I$(RTT_ROOT)/components/net/lwip-2.0.2/src/include \
-	-I$(RTT_ROOT)/components/net/lwip-2.0.2/src/include/ipv4 \
-	-I$(RTT_ROOT)/components/net/lwip-2.0.2/src/include/netif \
+	-I$(RTT_ROOT)/components/net/lwip-2.1.2/src \
+	-I$(RTT_ROOT)/components/net/lwip-2.1.2/src/arch/include \
+	-I$(RTT_ROOT)/components/net/lwip-2.1.2/src/include \
+	-I$(RTT_ROOT)/components/net/lwip-2.1.2/src/include/netif \
 	-I$(RTT_ROOT)/components/net/netdev/include \
 	-I$(RTT_ROOT)/components/net/sal_socket/impl \
 	-I$(RTT_ROOT)/components/net/sal_socket/include \
