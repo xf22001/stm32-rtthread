@@ -26,6 +26,7 @@ CPPPATHS :=-I$(BSP_ROOT) \
 	-I$(BSP_ROOT)/packages/wiznet-latest/ioLibrary/Internet \
 	-I$(RTT_ROOT)/components/dfs/filesystems/devfs \
 	-I$(RTT_ROOT)/components/dfs/filesystems/elmfat \
+	-I$(RTT_ROOT)/components/dfs/filesystems/romfs \
 	-I$(RTT_ROOT)/components/dfs/include \
 	-I$(RTT_ROOT)/components/drivers/include \
 	-I$(RTT_ROOT)/components/drivers/spi \

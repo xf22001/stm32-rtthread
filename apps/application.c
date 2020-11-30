@@ -42,10 +42,12 @@
 #include "app.h"
 #include "iwdg.h"
 #include "hw_pin.h"
+#include "usbh_msc_diskio.h"
 
 extern IWDG_HandleTypeDef hiwdg;
 extern TIM_HandleTypeDef htim4;
 extern RNG_HandleTypeDef hrng;
+extern struct romfs_dirent romfs_root;
 
 void rt_hw_stm32_eth_init(void);
 
@@ -148,7 +150,6 @@ void SysTick_Handler(void)
 
 void __wrap_srand(unsigned int seed)
 {
-	return HAL_RNG_GetRandomNumber(&hrng);
 }
 
 int __wrap_rand(void)
@@ -204,6 +205,12 @@ void rt_init_thread_entry(void *parameter)
 		//} else {
 		//	rt_kprintf("File System initialzation failed!\n");
 		//}
+		if (dfs_mount(RT_NULL, "/", "rom", 0, &(romfs_root)) == 0) {
+			rt_kprintf("ROM file system initializated!\n");
+		} else {
+			rt_kprintf("ROM file system initializate failed!\n");
+		}
+
 #endif
 	}
 #endif
