@@ -39,6 +39,7 @@
 #include "app_platform.h"
 #include "app.h"
 #include "iwdg.h"
+#include "hw_pin.h"
 
 extern IWDG_HandleTypeDef hiwdg;
 extern TIM_HandleTypeDef htim4;
@@ -163,6 +164,8 @@ static void idle()
 void rt_init_thread_entry(void *parameter)
 {
 	rt_tick_enable = 1;
+
+	rt_hw_pin_init();
 
 #ifdef RT_USING_COMPONENTS_INIT
 	/* RT-Thread components initialization */

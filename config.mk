@@ -13,6 +13,10 @@ CPPPATHS :=-I$(BSP_ROOT) \
 	-I$(BSP_ROOT)/applications \
 	-I$(BSP_ROOT)/packages/at_device-latest/class/sim76xx \
 	-I$(BSP_ROOT)/packages/at_device-latest/inc \
+	-I$(BSP_ROOT)/packages/wiznet-latest/inc \
+	-I$(BSP_ROOT)/packages/wiznet-latest/ioLibrary \
+	-I$(BSP_ROOT)/packages/wiznet-latest/ioLibrary/Ethernet \
+	-I$(BSP_ROOT)/packages/wiznet-latest/ioLibrary/Internet \
 	-I$(RTT_ROOT)/components/dfs/filesystems/devfs \
 	-I$(RTT_ROOT)/components/dfs/include \
 	-I$(RTT_ROOT)/components/drivers/include \
