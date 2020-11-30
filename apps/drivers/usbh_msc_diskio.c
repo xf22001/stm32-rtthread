@@ -6,7 +6,7 @@
  *   文件名称：usbh_msc_diskio.c
  *   创 建 者：肖飞
  *   创建日期：2020年11月30日 星期一 14时11分30秒
- *   修改日期：2020年11月30日 星期一 17时14分19秒
+ *   修改日期：2020年11月30日 星期一 17时32分21秒
  *   描    述：
  *
  *================================================================*/
@@ -374,7 +374,7 @@ void usbh_msc_mount(void)
 	char name[64];
 	char path[64];
 
-	for(lun = 0; lun < 1; lun++) {
+	for(lun = 0; lun < RT_DFS_ELM_DRIVES; lun++) {
 		snprintf(name, 64, "usb0p%d", lun);
 		snprintf(path, 64, "/sda%d", lun);
 
@@ -391,7 +391,7 @@ void usbh_msc_umount(void)
 	int lun;
 	char path[64];
 
-	for(lun = 0; lun < 1; lun++) {
+	for(lun = 0; lun < RT_DFS_ELM_DRIVES; lun++) {
 		snprintf(path, 64, "/sda%d", lun);
 
 		if (dfs_unmount(path) == 0) {
