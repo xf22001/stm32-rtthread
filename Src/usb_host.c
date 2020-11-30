@@ -27,6 +27,8 @@
 
 /* USER CODE BEGIN Includes */
 
+#include "usbh_msc_diskio.h"
+
 /* USER CODE END Includes */
 
 /* USER CODE BEGIN PV */
@@ -111,10 +113,12 @@ static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id)
 
   case HOST_USER_DISCONNECTION:
   Appli_state = APPLICATION_DISCONNECT;
+  usbh_msc_umount();
   break;
 
   case HOST_USER_CLASS_ACTIVE:
   Appli_state = APPLICATION_READY;
+  usbh_msc_mount();
   break;
 
   case HOST_USER_CONNECTION:
