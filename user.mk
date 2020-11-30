@@ -6,7 +6,7 @@
 #   文件名称：user.mk
 #   创 建 者：肖飞
 #   创建日期：2019年10月25日 星期五 13时04分38秒
-#   修改日期：2020年11月30日 星期一 11时41分34秒
+#   修改日期：2020年11月30日 星期一 12时59分52秒
 #   描    述：
 #
 #================================================================
@@ -44,7 +44,7 @@ ASM_SOURCES_S += $(USER_ASM_SOURCES)
 USER_CFLAGS += $(DEFINES)
 CFLAGS += $(USER_CFLAGS)
 
-LDFLAGS += -u _printf_float
+LDFLAGS += -u _printf_float -Wl,--wrap=srand  -Wl,--wrap=rand
 
 LDSCRIPT = stm32_rom.ld
 

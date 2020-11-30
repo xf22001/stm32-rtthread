@@ -23,7 +23,6 @@
 #include "can.h"
 #include "dma.h"
 #include "eth.h"
-#include "fatfs.h"
 #include "iwdg.h"
 #include "mbedtls.h"
 #include "rng.h"
@@ -107,7 +106,6 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART3_UART_Init();
   MX_USB_HOST_Init();
-  MX_FATFS_Init();
   MX_TIM4_Init();
   MX_SPI3_Init();
   MX_USART2_UART_Init();

@@ -25,7 +25,9 @@
 /* dfs init */
 #include <dfs.h>
 /* dfs filesystem:ELM filesystem init */
-//#include <dfs_elm.h>
+#ifdef RT_USING_DFS_ELMFAT
+#include <dfs_elm.h>
+#endif
 /* dfs Filesystem APIs */
 #include <dfs_fs.h>
 #endif
@@ -144,7 +146,12 @@ void SysTick_Handler(void)
 	}
 }
 
-int rand(void)
+void __wrap_srand(unsigned int seed)
+{
+	return HAL_RNG_GetRandomNumber(&hrng);
+}
+
+int __wrap_rand(void)
 {
 	return HAL_RNG_GetRandomNumber(&hrng);
 }
@@ -175,8 +182,28 @@ void rt_init_thread_entry(void *parameter)
 	/* Filesystem Initialization */
 #ifdef RT_USING_DFS
 	{
+		/* init sdcard driver */
+//#if STM32_USE_SDIO
+//		rt_hw_sdcard_init();
+//#else
+//		rt_hw_msd_init();
+//#endif
+
 		/* init the device filesystem */
 		dfs_init();
+
+#ifdef RT_USING_DFS_ELMFAT
+		/* init the elm chan FatFs filesystam*/
+		elm_init();
+
+		/* mount sd card fat partition 1 as root directory */
+		if (dfs_mount("sd0", "/", "elm", 0, 0) == 0) {
+			rt_kprintf("File System initialized!\n");
+		} else {
+			rt_kprintf("File System initialzation failed!\n");
+		}
+
+#endif
 	}
 #endif
 
