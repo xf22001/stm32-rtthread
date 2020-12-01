@@ -15,6 +15,7 @@ CPPPATHS :=-I$(BSP_ROOT) \
 	-I$(BSP_ROOT)/packages/at_device-latest/inc \
 	-I$(BSP_ROOT)/packages/netutils-v1.2.0/iperf \
 	-I$(BSP_ROOT)/packages/netutils-v1.2.0/tcpdump \
+	-I$(BSP_ROOT)/packages/netutils-v1.2.0/tftp \
 	-I$(BSP_ROOT)/packages/optparse-v1.0.0 \
 	-I$(BSP_ROOT)/packages/tencent-iot-sdk-latest/ports/ssl \
 	-I$(BSP_ROOT)/packages/tencent-iot-sdk-latest/qcloud-iot-explorer-sdk-embedded-c/include \
