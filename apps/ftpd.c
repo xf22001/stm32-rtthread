@@ -421,138 +421,6 @@ static void ftpd_thread_entry(void *parameter)
 	rt_free(buffer);
 }
 
-static int list_callback(void *ctx)
-{
-	struct ftp_session *session = (struct ftp_session *)ctx;
-	DIR *dirp;
-	struct dirent *entry;
-	char line_buffer[256];
-	int length;
-	char *sbuf = (char *)rt_malloc(FTP_BUFFER_SIZE);
-
-#ifdef _WIN32
-	struct _stat s;
-#else
-	struct stat s;
-#endif
-
-	if(sbuf == NULL) {
-		debug("no memory\n");
-		closesocket(session->data_sockfd);
-		session->data_sockfd = -1;
-
-		length = rt_sprintf(line_buffer, "500 Internal Error\r\n");
-		send(session->sockfd, line_buffer, length, 0);
-		return -1;
-	}
-
-	dirp = opendir(session->currentdir);
-
-	if (dirp == NULL) {
-		debug("opendir %s\n", strerror(errno));
-		closesocket(session->data_sockfd);
-		session->data_sockfd = -1;
-
-		length = rt_sprintf(line_buffer, "500 Internal Error\r\n");
-		send(session->sockfd, line_buffer, length, 0);
-		return -1;
-	}
-
-	while (1) {
-		entry = readdir(dirp);
-
-		if (entry == NULL) {
-			break;
-		}
-
-		rt_sprintf(sbuf, "%s/%s", session->currentdir, entry->d_name);
-#ifdef _WIN32
-
-		if (_stat(sbuf, &s) == 0)
-#else
-		if (stat(sbuf, &s) == 0)
-#endif
-		{
-			if (s.st_mode & S_IFDIR) {
-				length = rt_sprintf(sbuf, "drw-r--r-- 1 admin admin %d Jan 1 2000 %s\r\n", 0, entry->d_name);
-			} else {
-				length = rt_sprintf(sbuf, "-rw-r--r-- 1 admin admin %d Jan 1 2000 %s\r\n", s.st_size, entry->d_name);
-			}
-
-			send(session->data_sockfd, sbuf, length, 0);
-		} else {
-			rt_kprintf("Get directory entry error\n");
-			break;
-		}
-	}
-
-	closedir(dirp);
-
-	closesocket(session->data_sockfd);
-	session->data_sockfd = -1;
-
-	rt_sprintf(line_buffer, "226 Transfert Complete.\r\n");
-	send(session->sockfd, line_buffer, strlen(line_buffer), 0);
-
-	rt_free(sbuf);
-
-	return 0;
-}
-
-static int simple_list_callback(void *ctx)
-{
-	struct ftp_session *session = (struct ftp_session *)ctx;
-	DIR *dirp;
-	struct dirent *entry;
-	char line_buffer[256];
-	int length;
-	char *sbuf = (char *)rt_malloc(FTP_BUFFER_SIZE);
-
-	if(sbuf == NULL) {
-		debug("no memory\n");
-		closesocket(session->data_sockfd);
-		session->data_sockfd = -1;
-
-		length = rt_sprintf(line_buffer, "500 Internal Error\r\n");
-		send(session->sockfd, line_buffer, length, 0);
-		return -1;
-	}
-
-	dirp = opendir(session->currentdir);
-
-	if (dirp == NULL) {
-		debug("opendir %s\n", strerror(errno));
-		closesocket(session->data_sockfd);
-		session->data_sockfd = -1;
-
-		length = rt_sprintf(line_buffer, "500 Internal Error\r\n");
-		send(session->sockfd, line_buffer, length, 0);
-		return -1;
-	}
-
-	while (1) {
-		entry = readdir(dirp);
-
-		if (entry == NULL) {
-			break;
-		}
-
-		length = rt_sprintf(sbuf, "%s\r\n", entry->d_name);
-		send(session->data_sockfd, sbuf, length, 0);
-	}
-
-	closedir(dirp);
-
-	closesocket(session->data_sockfd);
-	session->data_sockfd = -1;
-
-	rt_sprintf(line_buffer, "226 Transfert Complete.\r\n");
-	send(session->sockfd, line_buffer, strlen(line_buffer), 0);
-
-	rt_free(sbuf);
-	return 0;
-}
-
 static int str_begin_with(char *src, char *match)
 {
 	while (*match) {
@@ -572,24 +440,168 @@ static int str_begin_with(char *src, char *match)
 	return 0;
 }
 
+
+static int list_callback(void *ctx)
+{
+	struct ftp_session *session = (struct ftp_session *)ctx;
+	DIR *dirp;
+	struct dirent *entry;
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+#ifdef _WIN32
+	struct _stat s;
+#else
+	struct stat s;
+#endif
+
+	if(buffer == NULL) {
+		debug("no memory\n");
+
+		rt_sprintf(buffer, "500 Internal Error\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		ftp_close_session(session);
+
+		return ret;
+	}
+
+	dirp = opendir(session->currentdir);
+
+	if (dirp == NULL) {
+		debug("opendir %s\n", strerror(errno));
+
+		rt_sprintf(buffer, "500 Internal Error\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		ftp_close_session(session);
+
+		goto exit;
+	}
+
+	while (1) {
+		entry = readdir(dirp);
+
+		if (entry == NULL) {
+			break;
+		}
+
+		rt_sprintf(buffer, "%s/%s", session->currentdir, entry->d_name);
+#ifdef _WIN32
+
+		if (_stat(buffer, &s) == 0)
+#else
+		if (stat(buffer, &s) == 0)
+#endif
+		{
+			int length = 0;
+			if (s.st_mode & S_IFDIR) {
+				length = rt_sprintf(buffer, "drw-r--r-- 1 admin admin %d Jan 1 2000 %s\r\n", 0, entry->d_name);
+			} else {
+				length = rt_sprintf(buffer, "-rw-r--r-- 1 admin admin %d Jan 1 2000 %s\r\n", s.st_size, entry->d_name);
+			}
+
+			send(session->data_sockfd, buffer, length, 0);
+		} else {
+			rt_kprintf("Get directory entry error\n");
+			break;
+		}
+	}
+
+	closedir(dirp);
+
+	ret = 0;
+
+	closesocket(session->data_sockfd);
+	session->data_sockfd = -1;
+
+	rt_sprintf(buffer, "226 Transfert Complete.\r\n");
+	send(session->sockfd, buffer, strlen(buffer), 0);
+
+exit:
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int simple_list_callback(void *ctx)
+{
+	struct ftp_session *session = (struct ftp_session *)ctx;
+	DIR *dirp;
+	struct dirent *entry;
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		rt_sprintf(buffer, "500 Internal Error\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		ftp_close_session(session);
+
+		return ret;
+	}
+
+	dirp = opendir(session->currentdir);
+
+	if (dirp == NULL) {
+		debug("opendir %s\n", strerror(errno));
+
+		rt_sprintf(buffer, "500 Internal Error\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		ftp_close_session(session);
+
+		goto exit;
+	}
+
+	while (1) {
+		entry = readdir(dirp);
+
+		if (entry == NULL) {
+			break;
+		}
+
+		rt_sprintf(buffer, "%s\r\n", entry->d_name);
+		send(session->data_sockfd, buffer, strlen(buffer), 0);
+	}
+
+	closedir(dirp);
+
+	closesocket(session->data_sockfd);
+	session->data_sockfd = -1;
+
+	rt_sprintf(buffer, "226 Transfert Complete.\r\n");
+	send(session->sockfd, buffer, strlen(buffer), 0);
+
+exit:
+
+	rt_free(buffer);
+	return 0;
+}
+
 static int retr_callback(void *ctx)
 {
 	struct ftp_session *session = (struct ftp_session *)ctx;
 	int  numbytes;
-	char *sbuf = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
 	int ret = -1;
 
-	if(sbuf == NULL) {
+	if(buffer == NULL) {
+		rt_sprintf(buffer, "500 Internal Error\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		ftp_close_session(session);
 		return ret;
 	}
 
-	numbytes = read(session->filefd, sbuf, FTP_BUFFER_SIZE);
+	numbytes = read(session->filefd, buffer, FTP_BUFFER_SIZE);
 
 	if(numbytes > 0) {
-		ret = send(session->data_sockfd, sbuf, numbytes, 0);
+		ret = send(session->data_sockfd, buffer, numbytes, 0);
 
 		if(ret <= 0) {
 			debug("abort retr!\n");
+
 			close(session->filefd);
 			session->filefd = -1;
 			closesocket(session->data_sockfd);
@@ -599,8 +611,9 @@ static int retr_callback(void *ctx)
 		}
 	} else if(numbytes == 0) {
 		debug("\n");
-		rt_sprintf(sbuf, "226 Finished.\r\n");
-		send(session->sockfd, sbuf, strlen(sbuf), 0);
+		rt_sprintf(buffer, "226 Finished.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+		ret = 0;
 
 		close(session->filefd);
 		session->filefd = -1;
@@ -608,13 +621,14 @@ static int retr_callback(void *ctx)
 		session->data_sockfd = -1;
 	} else if(numbytes == -1) {
 		debug("abort retr\n");
+
 		close(session->filefd);
 		session->filefd = -1;
 		closesocket(session->data_sockfd);
 		session->data_sockfd = -1;
 	}
 
-	rt_free(sbuf);
+	rt_free(buffer);
 
 	return ret;
 }
@@ -623,28 +637,34 @@ static int stor_callback(void *ctx)
 {
 	struct ftp_session *session = (struct ftp_session *)ctx;
 	int  numbytes;
-	char *sbuf = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
 	int ret = -1;
 
-	if(sbuf == NULL) {
+	if(buffer == NULL) {
+		rt_sprintf(buffer, "500 Internal Error\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		ftp_close_session(session);
 		return ret;
 	}
 
-	if((numbytes = recv(session->data_sockfd, sbuf, FTP_BUFFER_SIZE, 0)) > 0) {
-		ret = write(session->filefd, sbuf, numbytes);
+	if((numbytes = recv(session->data_sockfd, buffer, FTP_BUFFER_SIZE, 0)) > 0) {
+		ret = write(session->filefd, buffer, numbytes);
 
 		if(ret > 0) {
 			ret = 0;
 		} else {
 			debug("abort stor!\n");
+
 			close(session->filefd);
 			session->filefd = -1;
 			closesocket(session->data_sockfd);
 			session->data_sockfd = -1;
 		}
 	} else if(numbytes == 0) {
-		rt_sprintf(sbuf, "226 Finished.\r\n");
-		send(session->sockfd, sbuf, strlen(sbuf), 0);
+		rt_sprintf(buffer, "226 Finished.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+		ret = 0;
 
 		close(session->filefd);
 		session->filefd = -1;
@@ -652,27 +672,723 @@ static int stor_callback(void *ctx)
 		session->data_sockfd = -1;
 	} else if(numbytes == -1) {
 		debug("abort stor!\n");
+
 		close(session->filefd);
 		session->filefd = -1;
 		closesocket(session->data_sockfd);
 		session->data_sockfd = -1;
 	}
 
-	rt_free(sbuf);
+	rt_free(buffer);
 
 	return ret;
 }
 
+static int do_user(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	debug("%s sent login \"%s\"\n", inet_ntoa(session->remote.sin_addr), parameter);
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	// login correct
+	if(strcmp(parameter, "anonymous") == 0) {
+		session->is_anonymous = RT_TRUE;
+		rt_sprintf(buffer, "331 Anonymous login OK send e-mail address for password.\r\n", parameter);
+		send(session->sockfd, buffer, strlen(buffer), 0);
+		ret = 0;
+	} else if (strcmp(parameter, FTP_USER) == 0) {
+		session->is_anonymous = RT_FALSE;
+		rt_sprintf(buffer, "331 Password required for %s\r\n", parameter);
+		send(session->sockfd, buffer, strlen(buffer), 0);
+		ret = 0;
+	} else {
+		// incorrect login
+		rt_sprintf(buffer, "530 Login incorrect. Bye.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+	}
+
+	rt_free(buffer);
+	return ret;
+}
+
+static int do_pass(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	rt_kprintf("%s sent password \"%s\"\n", inet_ntoa(session->remote.sin_addr), parameter);
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	if (strcmp(parameter, FTP_PASSWORD) == 0 || session->is_anonymous == RT_TRUE) {
+		// password correct
+		rt_sprintf(buffer, "230 User logged in\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+		ret = 0;
+	} else {
+		// incorrect password
+		rt_sprintf(buffer, "530 Login or Password incorrect. Bye!\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+	}
+
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_list(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	rt_sprintf(buffer, "150 Opening Binary mode connection for file list.\r\n");
+	send(session->sockfd, buffer, strlen(buffer), 0);
+	ret = 0;
+
+	debug("start list_callback\n");
+	session->data_poll_mask.v = 0;
+	session->data_poll_mask.s.poll_out = 1;
+	session->session_data_callback = list_callback;
+
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_nlst(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	rt_sprintf(buffer, "150 Opening Binary mode connection for file list.\r\n");
+	send(session->sockfd, buffer, strlen(buffer), 0);
+	ret = 0;
+
+	debug("start simple_list_callback\n");
+	session->data_poll_mask.v = 0;
+	session->data_poll_mask.s.poll_out = 1;
+	session->session_data_callback = simple_list_callback;
+
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_pwd(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	rt_sprintf(buffer, "257 \"%s\" is current directory.\r\n", session->currentdir);
+	send(session->sockfd, buffer, strlen(buffer), 0);
+	ret = 0;
+
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_type(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	if(strcmp(parameter, "I") == 0) {
+		rt_sprintf(buffer, "200 Type set to binary.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+	} else {
+		rt_sprintf(buffer, "200 Type set to ascii.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+	}
+
+	ret = 0;
+
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_pasv(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int dig1 = 0;
+	int dig2 = 0;
+	int optval = 1;
+	struct sockaddr_in local;
+	u_ip_addr_field_t u_ip_addr_field;
+	int ret = -1;
+	rt_uint32_t addr_len = sizeof(struct sockaddr_in);
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	ret = 0;
+
+	if(session->pasv_server_sockfd != -1) {
+		debug("session->pasv_server_sockfd exist!\n");
+
+		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+		ret = 0;
+		goto exit;
+	}
+
+	if(session->data_sockfd != -1) {
+		debug("session->data_sockfd exist!\n");
+
+		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+		ret = 0;
+		goto exit;
+	}
+
+	session->pasv_port = pasv_port++;
+
+	local.sin_family = PF_INET;
+	local.sin_port = htons(session->pasv_port);
+	local.sin_addr.s_addr = INADDR_ANY;
+
+	dig1 = (int)(session->pasv_port / 256);
+	dig2 = session->pasv_port % 256;
+	u_ip_addr_field.v = netif_default->ip_addr.addr;
+
+	if((session->pasv_server_sockfd = socket(PF_INET, SOCK_STREAM, 0)) == -1) {
+		debug("socket %s\n", strerror(errno));
+
+		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+		goto exit;
+	}
+
+	if(setsockopt(session->pasv_server_sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1) {
+		debug("setsockopt %s\n", strerror(errno));
+
+		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		closesocket(session->pasv_server_sockfd);
+		session->pasv_server_sockfd = -1;
+		goto exit;
+	}
+
+	if(bind(session->pasv_server_sockfd, (struct sockaddr *)&local, addr_len) == -1) {
+		debug("bind %s\n", strerror(errno));
+
+		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		closesocket(session->pasv_server_sockfd);
+		session->pasv_server_sockfd = -1;
+		goto exit;
+	}
+
+	if(listen(session->pasv_server_sockfd, 1) == -1) {
+		debug("listen %s\n", strerror(errno));
+
+		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		closesocket(session->pasv_server_sockfd);
+		session->pasv_server_sockfd = -1;
+		goto exit;
+	}
+
+	session->pasv_server_stamp = rt_tick_get();
+
+	rt_kprintf("Listening %d seconds @ port %d\n", 3, session->pasv_port);
+
+	rt_sprintf(buffer, "227 Entering passive mode (%d,%d,%d,%d,%d,%d)\r\n", u_ip_addr_field.s.ip1, u_ip_addr_field.s.ip2, u_ip_addr_field.s.ip3, u_ip_addr_field.s.ip4, dig1, dig2);
+	send(session->sockfd, buffer, strlen(buffer), 0);
+
+exit:
+
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_retr(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+	int file_size;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	build_full_path(session, parameter, buffer, 256);
+	strcpy(parameter, buffer);
+
+	file_size = ftp_get_filesize(parameter);
+
+	if (file_size == -1) {
+		rt_sprintf(buffer, "550 \"%s\" : not a regular file\r\n", parameter);
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		goto exit;
+	}
+
+	session->filefd = open(parameter, O_RDONLY, 0);
+
+	if (session->filefd < 0) {
+		rt_sprintf(buffer, "550 \"%s\" : not a regular file\r\n", parameter);
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		goto exit;
+	}
+
+	if(session->offset > 0 && session->offset < file_size) {
+		lseek(session->filefd, session->offset, SEEK_SET);
+		rt_sprintf(buffer, "150 Opening binary mode data connection for partial \"%s\" (%d/%d bytes).\r\n", parameter, file_size - session->offset, file_size);
+	} else {
+		rt_sprintf(buffer, "150 Opening binary mode data connection for \"%s\" (%d bytes).\r\n", parameter, file_size);
+	}
+
+	send(session->sockfd, buffer, strlen(buffer), 0);
+
+	ret = 0;
+
+	debug("start retr_callback\n");
+	session->data_poll_mask.v = 0;
+	session->data_poll_mask.s.poll_out = 1;
+	session->session_data_callback = retr_callback;
+
+exit:
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_stor(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	if(session->is_anonymous == RT_TRUE) {
+		rt_sprintf(buffer, "550 Permission denied.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		debug("abort stor!\n");
+		goto exit;
+	}
+
+	build_full_path(session, parameter, buffer, FTP_BUFFER_SIZE);
+
+	strcpy(parameter, buffer);
+
+	session->filefd = open(parameter, O_WRONLY | O_CREAT | O_TRUNC, 0);
+
+	if(session->filefd < 0) {
+		rt_sprintf(buffer, "550 Cannot open \"%s\" for writing.\r\n", parameter);
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		session->filefd = -1;
+		goto exit;
+	}
+
+	rt_sprintf(buffer, "150 Opening binary mode data connection for \"%s\".\r\n", parameter);
+	send(session->sockfd, buffer, strlen(buffer), 0);
+
+	debug("start stor_callback\n");
+
+	session->data_poll_mask.v = 0;
+	session->data_poll_mask.s.poll_in = 1;
+	session->session_data_callback = stor_callback;
+
+	ret = 0;
+
+exit:
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_size(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+	int file_size;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	build_full_path(session, parameter, buffer, FTP_BUFFER_SIZE);
+
+	strcpy(parameter, buffer);
+
+	file_size = ftp_get_filesize(parameter);
+
+	if( file_size == -1) {
+		rt_sprintf(buffer, "550 \"%s\" : not a regular file\r\n", parameter);
+		send(session->sockfd, buffer, strlen(buffer), 0);
+	} else {
+		rt_sprintf(buffer, "213 %d\r\n", file_size);
+		send(session->sockfd, buffer, strlen(buffer), 0);
+	}
+
+	ret = 0;
+
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_mdtm(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	rt_sprintf(buffer, "550 \"/\" : not a regular file\r\n");
+	send(session->sockfd, buffer, strlen(buffer), 0);
+	ret = 0;
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_syst(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	rt_sprintf(buffer, "215 %s\r\n", "RT-Thread RTOS");
+	send(session->sockfd, buffer, strlen(buffer), 0);
+	ret = 0;
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_cwd(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	build_full_path(session, parameter, buffer, 256);
+	strcpy(parameter, buffer);
+
+	rt_sprintf(buffer, "250 Changed to directory \"%s\"\r\n", parameter);
+	send(session->sockfd, buffer, strlen(buffer), 0);
+	strcpy(session->currentdir, parameter);
+	rt_kprintf("Changed to directory %s\n", parameter);
+	ret = 0;
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_cdup(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	rt_sprintf(buffer, "%s/%s", session->currentdir, "..");
+	strcpy(parameter, buffer);
+
+	rt_sprintf(buffer, "250 Changed to directory \"%s\"\r\n", parameter);
+	send(session->sockfd, buffer, strlen(buffer), 0);
+	strcpy(session->currentdir, parameter);
+	rt_kprintf("Changed to directory %s\n", parameter);
+
+	ret = 0;
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_port(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+	int i;
+	int portcom[6];
+	char tmpip[100];
+	rt_uint32_t addr_len = sizeof(struct sockaddr_in);
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	if(session->data_sockfd != -1) {
+		debug("session->data_sockfd exist!\n");
+
+		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+		ret = 0;
+		goto exit;
+	}
+
+	if(session->data_sockfd != -1) {
+		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+		ret = 0;
+		goto exit;
+	}
+
+	i = 0;
+	portcom[i++] = atoi(strtok(parameter, ".,;()"));
+
+	for(; i < 6; i++) {
+		portcom[i] = atoi(strtok(0, ".,;()"));
+	}
+
+	rt_sprintf(tmpip, "%d.%d.%d.%d", portcom[0], portcom[1], portcom[2], portcom[3]);
+
+	if((session->data_sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		goto exit;
+	}
+
+	session->data_remote.sin_addr.s_addr = inet_addr(tmpip);
+	session->data_remote.sin_port = htons(portcom[4] * 256 + portcom[5]);
+	session->data_remote.sin_family = PF_INET;
+
+	if(connect(session->data_sockfd, (struct sockaddr *)&session->data_remote, addr_len) == -1) {
+		// is it only local address?try using gloal ip addr
+		session->data_remote.sin_addr = session->remote.sin_addr;
+
+		if(connect(session->data_sockfd, (struct sockaddr *)&session->data_remote, addr_len) == -1) {
+			rt_sprintf(buffer, "425 Can't open data connection.\r\n");
+			send(session->sockfd, buffer, strlen(buffer), 0);
+
+			closesocket(session->data_sockfd);
+			session->data_sockfd = -1;
+
+			ret = 0;
+			goto exit;
+		}
+	}
+
+	session->pasv_port = portcom[4] * 256 + portcom[5];
+	rt_kprintf("Connected to Data(PORT) %s @ %d\n", tmpip, portcom[4] * 256 + portcom[5]);
+	rt_sprintf(buffer, "200 Port Command Successful.\r\n");
+	send(session->sockfd, buffer, strlen(buffer), 0);
+
+	ret = 0;
+exit:
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_rest(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	if(atoi(parameter) >= 0) {
+		session->offset = atoi(parameter);
+		rt_sprintf(buffer, "350 Send RETR or STOR to start transfert.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+	}
+
+	ret = 0;
+
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_mkd(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	if (session->is_anonymous == RT_TRUE) {
+		rt_sprintf(buffer, "550 Permission denied.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+		ret = 0;
+
+		goto exit;
+	}
+
+	build_full_path(session, parameter, buffer, 256);
+
+	strcpy(parameter, buffer);
+
+	if(mkdir(parameter, 0) == -1) {
+		rt_sprintf(buffer, "550 File \"%s\" exists.\r\n", parameter);
+		send(session->sockfd, buffer, strlen(buffer), 0);
+	} else {
+		rt_sprintf(buffer, "257 directory \"%s\" successfully created.\r\n", parameter);
+		send(session->sockfd, buffer, strlen(buffer), 0);
+	}
+
+	ret = 0;
+
+exit:
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_dele(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	if (session->is_anonymous == RT_TRUE) {
+		rt_sprintf(buffer, "550 Permission denied.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+
+		ret = 0;
+		goto exit;
+	}
+
+	build_full_path(session, parameter, buffer, 256);
+	strcpy(parameter, buffer);
+
+	if(unlink(parameter) == 0) {
+		rt_sprintf(buffer, "250 Successfully deleted file \"%s\".\r\n", parameter);
+	} else {
+		rt_sprintf(buffer, "550 Not such file or directory: %s.\r\n", parameter);
+	}
+
+	send(session->sockfd, buffer, strlen(buffer), 0);
+
+	ret = 0;
+
+exit:
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_rmd(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	if (session->is_anonymous == RT_TRUE) {
+		rt_sprintf(buffer, "550 Permission denied.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+		ret = 0;
+		goto exit;
+	}
+
+	build_full_path(session, parameter, buffer, 256);
+	strcpy(parameter, buffer);
+
+	if(unlink(parameter) == -1) {
+		rt_sprintf(buffer, "550 Directory \"%s\" doesn't exist.\r\n", parameter);
+		send(session->sockfd, buffer, strlen(buffer), 0);
+	} else {
+		rt_sprintf(buffer, "257 directory \"%s\" successfully deleted.\r\n", parameter);
+		send(session->sockfd, buffer, strlen(buffer), 0);
+	}
+
+	ret = 0;
+
+exit:
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_quit(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	rt_sprintf(buffer, "221 Bye!\r\n");
+	send(session->sockfd, buffer, strlen(buffer), 0);
+
+	rt_free(buffer);
+
+	return ret;
+}
+
+static int do_un_imp(struct ftp_session *session, char *parameter)
+{
+	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret = -1;
+
+	if(buffer == NULL) {
+		return ret;
+	}
+
+	rt_sprintf(buffer, "502 Not Implemented.\r\n");
+	send(session->sockfd, buffer, strlen(buffer), 0);
+	ret = 0;
+
+	rt_free(buffer);
+
+	return ret;
+}
 
 static int ftp_process_request(struct ftp_session *session, char *buf)
 {
-	char filename[256];
 	//int  numbytes;
-	char *sbuf;
 	char *parameter_ptr, *ptr;
-	rt_uint32_t addr_len = sizeof(struct sockaddr_in);
-
-	sbuf = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	int ret;
 
 	/* remove \r\n */
 	ptr = buf;
@@ -688,8 +1404,8 @@ static int ftp_process_request(struct ftp_session *session, char *buf)
 	/* get request parameter */
 	parameter_ptr = strchr(buf, ' ');
 
-	if (parameter_ptr != NULL) {
-		parameter_ptr ++;
+	if(parameter_ptr != NULL) {
+		parameter_ptr++;
 	}
 
 	// debug:
@@ -698,400 +1414,50 @@ static int ftp_process_request(struct ftp_session *session, char *buf)
 	//
 	//-----------------------
 	if(str_begin_with(buf, "USER") == 0) {
-		rt_kprintf("%s sent login \"%s\"\n", inet_ntoa(session->remote.sin_addr), parameter_ptr);
-
-		// login correct
-		if(strcmp(parameter_ptr, "anonymous") == 0) {
-			session->is_anonymous = RT_TRUE;
-			rt_sprintf(sbuf, "331 Anonymous login OK send e-mail address for password.\r\n", parameter_ptr);
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-		} else if (strcmp(parameter_ptr, FTP_USER) == 0) {
-			session->is_anonymous = RT_FALSE;
-			rt_sprintf(sbuf, "331 Password required for %s\r\n", parameter_ptr);
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-		} else {
-			// incorrect login
-			rt_sprintf(sbuf, "530 Login incorrect. Bye.\r\n");
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-			rt_free(sbuf);
-			return -1;
-		}
-
-		return 0;
+		ret = do_user(session, parameter_ptr);
 	} else if(str_begin_with(buf, "PASS") == 0) {
-		rt_kprintf("%s sent password \"%s\"\n", inet_ntoa(session->remote.sin_addr), parameter_ptr);
-
-		if (strcmp(parameter_ptr, FTP_PASSWORD) == 0 ||
-		    session->is_anonymous == RT_TRUE) {
-			// password correct
-			rt_sprintf(sbuf, "230 User logged in\r\n");
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-			rt_free(sbuf);
-			return 0;
-		}
-
-		// incorrect password
-		rt_sprintf(sbuf, "530 Login or Password incorrect. Bye!\r\n");
-		send(session->sockfd, sbuf, strlen(sbuf), 0);
-		rt_free(sbuf);
-		return -1;
+		ret = do_pass(session, parameter_ptr);
 	} else if(str_begin_with(buf, "LIST") == 0  ) {
-		memset(sbuf, 0, FTP_BUFFER_SIZE);
-		rt_sprintf(sbuf, "150 Opening Binary mode connection for file list.\r\n");
-		send(session->sockfd, sbuf, strlen(sbuf), 0);
-
-		debug("start list_callback\n");
-		session->data_poll_mask.v = 0;
-		session->data_poll_mask.s.poll_out = 1;
-		session->session_data_callback = list_callback;
+		ret = do_list(session, parameter_ptr);
 	} else if(str_begin_with(buf, "NLST") == 0 ) {
-		memset(sbuf, 0, FTP_BUFFER_SIZE);
-		rt_sprintf(sbuf, "150 Opening Binary mode connection for file list.\r\n");
-		send(session->sockfd, sbuf, strlen(sbuf), 0);
-
-
-		debug("start simple_list_callback\n");
-		session->data_poll_mask.v = 0;
-		session->data_poll_mask.s.poll_out = 1;
-		session->session_data_callback = simple_list_callback;
+		ret = do_nlst(session, parameter_ptr);
 	} else if(str_begin_with(buf, "PWD") == 0 || str_begin_with(buf, "XPWD") == 0) {
-		rt_sprintf(sbuf, "257 \"%s\" is current directory.\r\n", session->currentdir);
-		send(session->sockfd, sbuf, strlen(sbuf), 0);
+		ret = do_pwd(session, parameter_ptr);
 	} else if(str_begin_with(buf, "TYPE") == 0) {
-		// Ignore it
-		if(strcmp(parameter_ptr, "I") == 0) {
-			rt_sprintf(sbuf, "200 Type set to binary.\r\n");
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-		} else {
-			rt_sprintf(sbuf, "200 Type set to ascii.\r\n");
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-		}
+		ret = do_type(session, parameter_ptr);
 	} else if(str_begin_with(buf, "PASV") == 0) {
-		int dig1 = 0;
-		int dig2 = 0;
-		int optval = 1;
-		u_ip_addr_field_t u_ip_addr_field;
-		uint8_t err = 0;
-		struct sockaddr_in local;
-
-		if(session->pasv_server_sockfd != -1) {
-			debug("session->pasv_server_sockfd exist!\n");
-			rt_sprintf(sbuf, "425 Can't open data connection.\r\n");
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-			err = 1;
-		}
-
-		if(session->data_sockfd != -1) {
-			debug("session->data_sockfd exist!\n");
-			rt_sprintf(sbuf, "425 Can't open data connection.\r\n");
-
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-			err = 1;
-		}
-
-		if(err == 0) {
-			session->pasv_port = pasv_port++;
-
-			local.sin_family = PF_INET;
-			local.sin_port = htons(session->pasv_port);
-			local.sin_addr.s_addr = INADDR_ANY;
-
-			dig1 = (int)(session->pasv_port / 256);
-			dig2 = session->pasv_port % 256;
-			u_ip_addr_field.v = netif_default->ip_addr.addr;
-
-			if((session->pasv_server_sockfd = socket(PF_INET, SOCK_STREAM, 0)) == -1) {
-				debug("socket %s\n", strerror(errno));
-				rt_sprintf(sbuf, "425 Can't open data connection.\r\n");
-
-				send(session->sockfd, sbuf, strlen(sbuf), 0);
-				err = 1;
-			}
-		}
-
-		if(err == 0) {
-			if(setsockopt(session->pasv_server_sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1) {
-				debug("setsockopt %s\n", strerror(errno));
-				rt_sprintf(sbuf, "425 Can't open data connection.\r\n");
-				send(session->sockfd, sbuf, strlen(sbuf), 0);
-				closesocket(session->pasv_server_sockfd);
-				session->pasv_server_sockfd = -1;
-				err = 1;
-			}
-		}
-
-		if(err == 0) {
-			if(bind(session->pasv_server_sockfd, (struct sockaddr *)&local, addr_len) == -1) {
-				debug("bind %s\n", strerror(errno));
-				rt_sprintf(sbuf, "425 Can't open data connection.\r\n");
-				send(session->sockfd, sbuf, strlen(sbuf), 0);
-				closesocket(session->pasv_server_sockfd);
-				session->pasv_server_sockfd = -1;
-				err = 1;
-			}
-		}
-
-		if(err == 0) {
-			if(listen(session->pasv_server_sockfd, 1) == -1) {
-				debug("listen %s\n", strerror(errno));
-				rt_sprintf(sbuf, "425 Can't open data connection.\r\n");
-				send(session->sockfd, sbuf, strlen(sbuf), 0);
-				closesocket(session->pasv_server_sockfd);
-				session->pasv_server_sockfd = -1;
-				err = 1;
-			}
-		}
-
-		if(err == 0) {
-			session->pasv_server_stamp = rt_tick_get();
-			rt_kprintf("Listening %d seconds @ port %d\n", 3, session->pasv_port);
-			rt_sprintf(sbuf, "227 Entering passive mode (%d,%d,%d,%d,%d,%d)\r\n", u_ip_addr_field.s.ip1, u_ip_addr_field.s.ip2, u_ip_addr_field.s.ip3, u_ip_addr_field.s.ip4, dig1, dig2);
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-		}
+		ret = do_pasv(session, parameter_ptr);
 	} else if (str_begin_with(buf, "RETR") == 0) {
-		int file_size;
-		uint8_t err = 0;
-
-		strcpy(filename, buf + 5);
-
-		build_full_path(session, parameter_ptr, filename, 256);
-		file_size = ftp_get_filesize(filename);
-
-		if (file_size == -1) {
-			rt_sprintf(sbuf, "550 \"%s\" : not a regular file\r\n", filename);
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-
-			err = 1;
-		}
-
-		if(err == 0) {
-			session->filefd = open(filename, O_RDONLY, 0);
-
-			if (session->filefd < 0) {
-				rt_sprintf(sbuf, "550 \"%s\" : not a regular file\r\n", filename);
-				send(session->sockfd, sbuf, strlen(sbuf), 0);
-				err = 1;
-			}
-		}
-
-		if(err == 0) {
-			if(session->offset > 0 && session->offset < file_size) {
-				lseek(session->filefd, session->offset, SEEK_SET);
-				rt_sprintf(sbuf, "150 Opening binary mode data connection for partial \"%s\" (%d/%d bytes).\r\n",
-				           filename, file_size - session->offset, file_size);
-			} else {
-				rt_sprintf(sbuf, "150 Opening binary mode data connection for \"%s\" (%d bytes).\r\n", filename, file_size);
-			}
-
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-
-			debug("start retr_callback\n");
-			session->data_poll_mask.v = 0;
-			session->data_poll_mask.s.poll_out = 1;
-			session->session_data_callback = retr_callback;
-		}
+		ret = do_retr(session, parameter_ptr);
 	} else if (str_begin_with(buf, "STOR") == 0) {
-		uint8_t err = 0;
-
-		if(session->is_anonymous == RT_TRUE) {
-			rt_sprintf(sbuf, "550 Permission denied.\r\n");
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-
-			debug("abort stor!\n");
-			closesocket(session->data_sockfd);
-			session->data_sockfd = -1;
-
-			err = 1;
-		}
-
-		if(err == 0) {
-			build_full_path(session, parameter_ptr, filename, 256);
-
-			session->filefd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0);
-
-			if(session->filefd < 0) {
-				rt_sprintf(sbuf, "550 Cannot open \"%s\" for writing.\r\n", filename);
-				send(session->sockfd, sbuf, strlen(sbuf), 0);
-				session->filefd = -1;
-
-				closesocket(session->data_sockfd);
-				session->data_sockfd = -1;
-
-				err = 1;
-			}
-		}
-
-		if(err == 0) {
-			rt_sprintf(sbuf, "150 Opening binary mode data connection for \"%s\".\r\n", filename);
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-
-			debug("start stor_callback\n");
-
-			session->data_poll_mask.v = 0;
-			session->data_poll_mask.s.poll_in = 1;
-			session->session_data_callback = stor_callback;
-		}
+		ret = do_stor(session, parameter_ptr);
 	} else if(str_begin_with(buf, "SIZE") == 0) {
-		int file_size;
-
-		build_full_path(session, parameter_ptr, filename, 256);
-
-		file_size = ftp_get_filesize(filename);
-
-		if( file_size == -1) {
-			rt_sprintf(sbuf, "550 \"%s\" : not a regular file\r\n", filename);
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-		} else {
-			rt_sprintf(sbuf, "213 %d\r\n", file_size);
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-		}
+		ret = do_size(session, parameter_ptr);
 	} else if(str_begin_with(buf, "MDTM") == 0) {
-		rt_sprintf(sbuf, "550 \"/\" : not a regular file\r\n");
-		send(session->sockfd, sbuf, strlen(sbuf), 0);
+		ret = do_mdtm(session, parameter_ptr);
 	} else if(str_begin_with(buf, "SYST") == 0) {
-		rt_sprintf(sbuf, "215 %s\r\n", "RT-Thread RTOS");
-		send(session->sockfd, sbuf, strlen(sbuf), 0);
+		ret = do_syst(session, parameter_ptr);
 	} else if(str_begin_with(buf, "CWD") == 0) {
-		build_full_path(session, parameter_ptr, filename, 256);
-
-		rt_sprintf(sbuf, "250 Changed to directory \"%s\"\r\n", filename);
-		send(session->sockfd, sbuf, strlen(sbuf), 0);
-		strcpy(session->currentdir, filename);
-		rt_kprintf("Changed to directory %s\n", filename);
+		ret = do_cwd(session, parameter_ptr);
 	} else if(str_begin_with(buf, "CDUP") == 0) {
-		rt_sprintf(filename, "%s/%s", session->currentdir, "..");
-
-		rt_sprintf(sbuf, "250 Changed to directory \"%s\"\r\n", filename);
-		send(session->sockfd, sbuf, strlen(sbuf), 0);
-		strcpy(session->currentdir, filename);
-		rt_kprintf("Changed to directory %s\n", filename);
+		ret = do_cdup(session, parameter_ptr);
 	} else if(str_begin_with(buf, "PORT") == 0) {
-		int i;
-		int portcom[6];
-		char tmpip[100];
-
-		if(session->data_sockfd != -1) {
-			debug("session->data_sockfd exist!\n");
-			rt_sprintf(sbuf, "425 Can't open data connection.\r\n");
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-			rt_free(sbuf);
-			return 0;
-		}
-
-		if(session->data_sockfd != -1) {
-			rt_sprintf(sbuf, "425 Can't open data connection.\r\n");
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-			rt_free(sbuf);
-			return 0;
-		}
-
-		i = 0;
-		portcom[i++] = atoi(strtok(parameter_ptr, ".,;()"));
-
-		for(; i < 6; i++) {
-			portcom[i] = atoi(strtok(0, ".,;()"));
-		}
-
-		rt_sprintf(tmpip, "%d.%d.%d.%d", portcom[0], portcom[1], portcom[2], portcom[3]);
-
-		if((session->data_sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-			rt_sprintf(sbuf, "425 Can't open data connection.\r\n");
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-			closesocket(session->data_sockfd);
-			rt_free(sbuf);
-			return 0;
-		}
-
-		session->data_remote.sin_addr.s_addr = inet_addr(tmpip);
-		session->data_remote.sin_port = htons(portcom[4] * 256 + portcom[5]);
-		session->data_remote.sin_family = PF_INET;
-
-		if(connect(session->data_sockfd, (struct sockaddr *)&session->data_remote, addr_len) == -1) {
-			// is it only local address?try using gloal ip addr
-			session->data_remote.sin_addr = session->remote.sin_addr;
-
-			if(connect(session->data_sockfd, (struct sockaddr *)&session->data_remote, addr_len) == -1) {
-				rt_sprintf(sbuf, "425 Can't open data connection.\r\n");
-				send(session->sockfd, sbuf, strlen(sbuf), 0);
-				closesocket(session->data_sockfd);
-				rt_free(sbuf);
-				return 0;
-			}
-		}
-
-		session->pasv_port = portcom[4] * 256 + portcom[5];
-		rt_kprintf("Connected to Data(PORT) %s @ %d\n", tmpip, portcom[4] * 256 + portcom[5]);
-		rt_sprintf(sbuf, "200 Port Command Successful.\r\n");
-		send(session->sockfd, sbuf, strlen(sbuf), 0);
+		ret = do_port(session, parameter_ptr);
 	} else if(str_begin_with(buf, "REST") == 0) {
-		if(atoi(parameter_ptr) >= 0) {
-			session->offset = atoi(parameter_ptr);
-			rt_sprintf(sbuf, "350 Send RETR or STOR to start transfert.\r\n");
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-		}
+		ret = do_rest(session, parameter_ptr);
 	} else if(str_begin_with(buf, "MKD") == 0) {
-		if (session->is_anonymous == RT_TRUE) {
-			rt_sprintf(sbuf, "550 Permission denied.\r\n");
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-			rt_free(sbuf);
-			return 0;
-		}
-
-		build_full_path(session, parameter_ptr, filename, 256);
-
-		if(mkdir(filename, 0) == -1) {
-			rt_sprintf(sbuf, "550 File \"%s\" exists.\r\n", filename);
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-		} else {
-			rt_sprintf(sbuf, "257 directory \"%s\" successfully created.\r\n", filename);
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-		}
+		ret = do_mkd(session, parameter_ptr);
 	} else if(str_begin_with(buf, "DELE") == 0) {
-		if (session->is_anonymous == RT_TRUE) {
-			rt_sprintf(sbuf, "550 Permission denied.\r\n");
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-			rt_free(sbuf);
-			return 0;
-		}
-
-		build_full_path(session, parameter_ptr, filename, 256);
-
-		if(unlink(filename) == 0) {
-			rt_sprintf(sbuf, "250 Successfully deleted file \"%s\".\r\n", filename);
-		} else {
-			rt_sprintf(sbuf, "550 Not such file or directory: %s.\r\n", filename);
-		}
-
-		send(session->sockfd, sbuf, strlen(sbuf), 0);
+		ret = do_dele(session, parameter_ptr);
 	} else if(str_begin_with(buf, "RMD") == 0) {
-		if (session->is_anonymous == RT_TRUE) {
-			rt_sprintf(sbuf, "550 Permission denied.\r\n");
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-			rt_free(sbuf);
-			return 0;
-		}
-
-		build_full_path(session, parameter_ptr, filename, 256);
-
-		if(unlink(filename) == -1) {
-			rt_sprintf(sbuf, "550 Directory \"%s\" doesn't exist.\r\n", filename);
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-		} else {
-			rt_sprintf(sbuf, "257 directory \"%s\" successfully deleted.\r\n", filename);
-			send(session->sockfd, sbuf, strlen(sbuf), 0);
-		}
+		ret = do_rmd(session, parameter_ptr);
 	} else if(str_begin_with(buf, "QUIT") == 0) {
-		rt_sprintf(sbuf, "221 Bye!\r\n");
-		send(session->sockfd, sbuf, strlen(sbuf), 0);
-		rt_free(sbuf);
-		return -1;
+		ret = do_quit(session, parameter_ptr);
 	} else {
-		rt_sprintf(sbuf, "502 Not Implemented.\r\n");
-		send(session->sockfd, sbuf, strlen(sbuf), 0);
+		ret = do_un_imp(session, parameter_ptr);
 	}
 
-	rt_free(sbuf);
-	return 0;
+	return ret;
 }
 
 void ftpd_start()
