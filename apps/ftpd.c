@@ -495,6 +495,7 @@ static int list_callback(void *ctx)
 #endif
 		{
 			int length = 0;
+
 			if (s.st_mode & S_IFDIR) {
 				length = rt_sprintf(buffer, "drw-r--r-- 1 admin admin %d Jan 1 2000 %s\r\n", 0, entry->d_name);
 			} else {
@@ -1164,13 +1165,6 @@ static int do_port(struct ftp_session *session, char *parameter)
 		goto exit;
 	}
 
-	if(session->data_sockfd != -1) {
-		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
-		send(session->sockfd, buffer, strlen(buffer), 0);
-		ret = 0;
-		goto exit;
-	}
-
 	i = 0;
 	portcom[i++] = atoi(strtok(parameter, ".,;()"));
 
@@ -1181,6 +1175,7 @@ static int do_port(struct ftp_session *session, char *parameter)
 	rt_sprintf(tmpip, "%d.%d.%d.%d", portcom[0], portcom[1], portcom[2], portcom[3]);
 
 	if((session->data_sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		debug("socket %s\n", strerror(errno));
 		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
 		send(session->sockfd, buffer, strlen(buffer), 0);
 
@@ -1196,6 +1191,7 @@ static int do_port(struct ftp_session *session, char *parameter)
 		session->data_remote.sin_addr = session->remote.sin_addr;
 
 		if(connect(session->data_sockfd, (struct sockaddr *)&session->data_remote, addr_len) == -1) {
+			debug("connect %s\n", strerror(errno));
 			rt_sprintf(buffer, "425 Can't open data connection.\r\n");
 			send(session->sockfd, buffer, strlen(buffer), 0);
 
