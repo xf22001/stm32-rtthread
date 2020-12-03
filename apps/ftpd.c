@@ -337,69 +337,36 @@ static void ftpd_thread_entry(void *parameter)
 				}
 
 				if(session->pasv_server_sockfd != -1) {
-					if(FD_ISSET(session->pasv_server_sockfd, &rfds)) {
-						if(session->data_sockfd == -1) {
-
-							session->data_sockfd = accept(session->pasv_server_sockfd, (struct sockaddr *)&session->data_remote, &addr_len);
-
-							if(session->data_sockfd == -1) {
-								rt_sprintf(buffer, "425 Can't open data connection.\r\n");
-								send(session->sockfd, buffer, strlen(buffer), 0);
-								debug("Error on pasv accept()\nContinuing...\n");
-								continue;
-							} else {
-								debug("Got pasv connection from %s\n", inet_ntoa(session->data_remote.sin_addr));
-								session->data_stamp = rt_tick_get();
-
-								closesocket(session->pasv_server_sockfd);
-								session->pasv_server_sockfd = -1;
-								debug("Leave pasv mode...\n");
-							}
-						} else {
-							rt_sprintf(buffer, "425 Can't open data connection.\r\n");
-							send(session->sockfd, buffer, strlen(buffer), 0);
-							debug("session->data_sockfd exist!\n");
-							debug("Error on pasv accept()\nContinuing...\n");
-							continue;
-						}
+					if(rt_tick_get() - session->pasv_server_stamp >= rt_tick_from_millisecond(3000)) {
+						closesocket(session->pasv_server_sockfd);
+						session->pasv_server_sockfd = -1;
+						rt_sprintf(buffer, "425 Can't open data connection.\r\n");
+						send(session->sockfd, buffer, strlen(buffer), 0);
+						debug("pasv_server_sockfd timeout, close...\n");
 					} else {
-						if(rt_tick_get() - session->pasv_server_stamp >= rt_tick_from_millisecond(3000)) {
-							closesocket(session->pasv_server_sockfd);
-							session->pasv_server_sockfd = -1;
-							rt_sprintf(buffer, "425 Can't open data connection.\r\n");
-							send(session->sockfd, buffer, strlen(buffer), 0);
-							debug("Leave pasv mode...\n");
+						if(FD_ISSET(session->pasv_server_sockfd, &rfds)) {
+							if(session->data_sockfd == -1) {
+								session->data_sockfd = accept(session->pasv_server_sockfd, (struct sockaddr *)&session->data_remote, &addr_len);
+
+								if(session->data_sockfd == -1) {
+									rt_sprintf(buffer, "425 Can't open data connection.\r\n");
+									send(session->sockfd, buffer, strlen(buffer), 0);
+									debug("accept %s\n", strerror(errno));
+								} else {
+									debug("Got pasv connection from %s\n", inet_ntoa(session->data_remote.sin_addr));
+									session->data_stamp = rt_tick_get();
+
+									closesocket(session->pasv_server_sockfd);
+									session->pasv_server_sockfd = -1;
+									debug("Leave pasv mode...\n");
+								}
+							}
 						}
 					}
+
 				}
 
 				if(session->data_sockfd != -1) {
-					if(session->data_poll_mask.s.poll_in == 1) {
-						if(FD_ISSET(session->data_sockfd, &rfds)) {
-							if(session->session_data_callback != NULL) {
-								//debug("process data_sockfd\n");
-								session->session_data_callback(session);
-								session->data_stamp = rt_tick_get();
-							}
-						}
-					}
-
-					if(session->data_poll_mask.s.poll_out == 1) {
-						if(FD_ISSET(session->data_sockfd, &wfds)) {
-							if(session->session_data_callback != NULL) {
-								//debug("process data_sockfd\n");
-								session->session_data_callback(session);
-								session->data_stamp = rt_tick_get();
-							}
-						}
-					}
-
-					if(session->data_poll_mask.s.poll_err == 1) {
-						if(FD_ISSET(session->data_sockfd, &efds)) {
-							debug("\n");
-						}
-					}
-
 					if(rt_tick_get() - session->data_stamp >= rt_tick_from_millisecond(3000)) {
 						if(session->filefd != -1) {
 							close(session->filefd);
@@ -410,6 +377,32 @@ static void ftpd_thread_entry(void *parameter)
 						session->data_sockfd = -1;
 						session->session_data_callback = NULL;
 						debug("data_sockfd timeout! close...\n");
+					} else {
+						if(session->data_poll_mask.s.poll_in == 1) {
+							if(FD_ISSET(session->data_sockfd, &rfds)) {
+								if(session->session_data_callback != NULL) {
+									//debug("process data_sockfd\n");
+									session->session_data_callback(session);
+									session->data_stamp = rt_tick_get();
+								}
+							}
+						}
+
+						if(session->data_poll_mask.s.poll_out == 1) {
+							if(FD_ISSET(session->data_sockfd, &wfds)) {
+								if(session->session_data_callback != NULL) {
+									//debug("process data_sockfd\n");
+									session->session_data_callback(session);
+									session->data_stamp = rt_tick_get();
+								}
+							}
+						}
+
+						if(session->data_poll_mask.s.poll_err == 1) {
+							if(FD_ISSET(session->data_sockfd, &efds)) {
+								debug("\n");
+							}
+						}
 					}
 				}
 
@@ -837,7 +830,7 @@ static int do_pasv(struct ftp_session *session, char *parameter)
 	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
 	int dig1 = 0;
 	int dig2 = 0;
-	int optval = 1;
+	//int optval = 1;
 	struct sockaddr_in local;
 	u_ip_addr_field_t u_ip_addr_field;
 	int ret = -1;
@@ -849,33 +842,32 @@ static int do_pasv(struct ftp_session *session, char *parameter)
 
 	ret = 0;
 
-	if(session->pasv_server_sockfd != -1) {
-		debug("session->pasv_server_sockfd exist!\n");
-
-		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
-		send(session->sockfd, buffer, strlen(buffer), 0);
-		ret = 0;
-		goto exit;
-	}
-
 	if(session->data_sockfd != -1) {
 		debug("session->data_sockfd exist!\n");
 
 		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
 		send(session->sockfd, buffer, strlen(buffer), 0);
-		ret = 0;
 		goto exit;
 	}
 
-	session->pasv_port = pasv_port++;
+	if(session->pasv_server_sockfd != -1) {
+		debug("session->pasv_server_sockfd exist!\n");
+
+		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
+		send(session->sockfd, buffer, strlen(buffer), 0);
+		goto exit;
+	}
+
+	if(pasv_port < 10000) {
+		pasv_port = 10000;
+	}
+
+	session->pasv_port = pasv_port;
+	pasv_port++;
 
 	local.sin_family = PF_INET;
 	local.sin_port = htons(session->pasv_port);
 	local.sin_addr.s_addr = INADDR_ANY;
-
-	dig1 = (int)(session->pasv_port / 256);
-	dig2 = session->pasv_port % 256;
-	u_ip_addr_field.v = netif_default->ip_addr.addr;
 
 	if((session->pasv_server_sockfd = socket(PF_INET, SOCK_STREAM, 0)) == -1) {
 		debug("socket %s\n", strerror(errno));
@@ -885,16 +877,16 @@ static int do_pasv(struct ftp_session *session, char *parameter)
 		goto exit;
 	}
 
-	if(setsockopt(session->pasv_server_sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1) {
-		debug("setsockopt %s\n", strerror(errno));
+	//if(setsockopt(session->pasv_server_sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1) {
+	//	debug("setsockopt %s\n", strerror(errno));
 
-		rt_sprintf(buffer, "425 Can't open data connection.\r\n");
-		send(session->sockfd, buffer, strlen(buffer), 0);
+	//	rt_sprintf(buffer, "425 Can't open data connection.\r\n");
+	//	send(session->sockfd, buffer, strlen(buffer), 0);
 
-		closesocket(session->pasv_server_sockfd);
-		session->pasv_server_sockfd = -1;
-		goto exit;
-	}
+	//	closesocket(session->pasv_server_sockfd);
+	//	session->pasv_server_sockfd = -1;
+	//	goto exit;
+	//}
 
 	if(bind(session->pasv_server_sockfd, (struct sockaddr *)&local, addr_len) == -1) {
 		debug("bind %s\n", strerror(errno));
@@ -919,6 +911,10 @@ static int do_pasv(struct ftp_session *session, char *parameter)
 	}
 
 	session->pasv_server_stamp = rt_tick_get();
+
+	dig1 = (int)(session->pasv_port / 256);
+	dig2 = session->pasv_port % 256;
+	u_ip_addr_field.v = netif_default->ip_addr.addr;
 
 	rt_kprintf("Listening %d seconds @ port %d\n", 3, session->pasv_port);
 
