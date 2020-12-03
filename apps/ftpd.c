@@ -188,6 +188,83 @@ static rt_bool_t is_absolute_path(char *path)
 	return RT_FALSE;
 }
 
+static void tune_absolute_path(char *path)
+{
+	char *r = NULL;
+	char *w = NULL;
+	char *end = path + strlen(path);
+	int part_flag = 0;
+
+	r = path;
+
+	while(r != end) {
+		if(*r == '/') {
+			*r = 0;
+		}
+
+		r++;
+	}
+
+	r = path;
+	w = path;
+
+	while(r != end) {
+		if(*(r + 0) == 0) {//为'/'
+			if(((r + 3) <= end) && (*(r + 1) == '.') && (*(r + 2) == '.') && (*(r + 3) == 0)) {//'/../../'
+				//'/../' 回退一节
+				char *last_part;
+
+				last_part = strrchr(path, '/');
+
+				if(last_part != NULL) {
+					w = last_part;
+					w++;
+					debug("[%d] process /../\n", w - path);
+				} else {//前面没有节了
+					//啥都不做
+					debug("[%d] process /../\n", w - path);
+				}
+
+				r += 3;
+			} else if(((r + 2) <= end) && (*(r + 1) == '.') && (*(r + 2) == 0)) {//'/././'
+				//'/./' 忽略无效节
+				r += 2;
+				debug("[%d] process /./\n", w - path);
+			} else if(((r + 1) <= end) && (*(r + 1) == 0)) {//'//'
+				//'//' 忽略无效节
+				if(part_flag == 0) {//添加节号
+					*w = '/';
+					debug("[%d] w:%c\n", w - path, *w);
+					w++;
+				}
+
+				r++;
+				debug("[%d] process //\n", w - path);
+			} else {//处理节号
+				if(part_flag == 0) {//添加节号
+					*w = '/';
+					debug("[%d] w:%c\n", w - path, *w);
+					w++;
+					r++;
+				} else {//跳过节号
+					r++;
+					debug("[%d] process /\n", w - path);
+				}
+			}
+
+			part_flag = 1;
+		} else {//不为'/'
+			part_flag = 0;
+			*w = *r;
+			debug("[%d] w:%c\n", w - path, *w);
+			w++;
+			r++;
+		}
+	}
+
+	*w = 0;
+}
+
 static int build_full_path(struct ftp_session *session, char *path, char *new_path, size_t size)
 {
 	if (is_absolute_path(path) == RT_TRUE) {
@@ -195,6 +272,10 @@ static int build_full_path(struct ftp_session *session, char *path, char *new_pa
 	} else {
 		rt_sprintf(new_path, "%s/%s", session->currentdir, path);
 	}
+
+	debug("new_path:%s\n", new_path);
+
+	tune_absolute_path(new_path);
 
 	return 0;
 }
@@ -931,6 +1012,7 @@ exit:
 static int do_retr(struct ftp_session *session, char *parameter)
 {
 	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	char *filename = (char *)rt_malloc(FTP_BUFFER_SIZE);
 	int ret = -1;
 	int file_size;
 
@@ -938,22 +1020,29 @@ static int do_retr(struct ftp_session *session, char *parameter)
 		return ret;
 	}
 
-	build_full_path(session, parameter, buffer, 256);
-	strcpy(parameter, buffer);
+	if(filename == NULL) {
+		rt_free(buffer);
+		return ret;
+	}
 
-	file_size = ftp_get_filesize(parameter);
+	build_full_path(session, parameter, filename, 256);
+
+	debug("filename:%s\n", filename);
+	debug("session->currentdir:%s\n", session->currentdir);
+
+	file_size = ftp_get_filesize(filename);
 
 	if (file_size == -1) {
-		rt_sprintf(buffer, "550 \"%s\" : not a regular file\r\n", parameter);
+		rt_sprintf(buffer, "550 \"%s\" : not a regular file\r\n", filename);
 		send(session->sockfd, buffer, strlen(buffer), 0);
 
 		goto exit;
 	}
 
-	session->filefd = open(parameter, O_RDONLY, 0);
+	session->filefd = open(filename, O_RDONLY, 0);
 
 	if (session->filefd < 0) {
-		rt_sprintf(buffer, "550 \"%s\" : not a regular file\r\n", parameter);
+		rt_sprintf(buffer, "550 \"%s\" : not a regular file\r\n", filename);
 		send(session->sockfd, buffer, strlen(buffer), 0);
 
 		goto exit;
@@ -961,9 +1050,9 @@ static int do_retr(struct ftp_session *session, char *parameter)
 
 	if(session->offset > 0 && session->offset < file_size) {
 		lseek(session->filefd, session->offset, SEEK_SET);
-		rt_sprintf(buffer, "150 Opening binary mode data connection for partial \"%s\" (%d/%d bytes).\r\n", parameter, file_size - session->offset, file_size);
+		rt_sprintf(buffer, "150 Opening binary mode data connection for partial \"%s\" (%d/%d bytes).\r\n", filename, file_size - session->offset, file_size);
 	} else {
-		rt_sprintf(buffer, "150 Opening binary mode data connection for \"%s\" (%d bytes).\r\n", parameter, file_size);
+		rt_sprintf(buffer, "150 Opening binary mode data connection for \"%s\" (%d bytes).\r\n", filename, file_size);
 	}
 
 	send(session->sockfd, buffer, strlen(buffer), 0);
@@ -976,6 +1065,7 @@ static int do_retr(struct ftp_session *session, char *parameter)
 	session->session_data_callback = retr_callback;
 
 exit:
+	rt_free(filename);
 	rt_free(buffer);
 
 	return ret;
@@ -984,9 +1074,15 @@ exit:
 static int do_stor(struct ftp_session *session, char *parameter)
 {
 	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	char *filename = (char *)rt_malloc(FTP_BUFFER_SIZE);
 	int ret = -1;
 
 	if(buffer == NULL) {
+		return ret;
+	}
+
+	if(filename == NULL) {
+		rt_free(buffer);
 		return ret;
 	}
 
@@ -998,21 +1094,22 @@ static int do_stor(struct ftp_session *session, char *parameter)
 		goto exit;
 	}
 
-	build_full_path(session, parameter, buffer, FTP_BUFFER_SIZE);
+	build_full_path(session, parameter, filename, FTP_BUFFER_SIZE);
 
-	strcpy(parameter, buffer);
+	debug("filename:%s\n", filename);
+	debug("session->currentdir:%s\n", session->currentdir);
 
-	session->filefd = open(parameter, O_WRONLY | O_CREAT | O_TRUNC, 0);
+	session->filefd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0);
 
 	if(session->filefd < 0) {
-		rt_sprintf(buffer, "550 Cannot open \"%s\" for writing.\r\n", parameter);
+		rt_sprintf(buffer, "550 Cannot open \"%s\" for writing.\r\n", filename);
 		send(session->sockfd, buffer, strlen(buffer), 0);
 
 		session->filefd = -1;
 		goto exit;
 	}
 
-	rt_sprintf(buffer, "150 Opening binary mode data connection for \"%s\".\r\n", parameter);
+	rt_sprintf(buffer, "150 Opening binary mode data connection for \"%s\".\r\n", filename);
 	send(session->sockfd, buffer, strlen(buffer), 0);
 
 	debug("start stor_callback\n");
@@ -1024,6 +1121,7 @@ static int do_stor(struct ftp_session *session, char *parameter)
 	ret = 0;
 
 exit:
+	rt_free(filename);
 	rt_free(buffer);
 
 	return ret;
@@ -1032,6 +1130,7 @@ exit:
 static int do_size(struct ftp_session *session, char *parameter)
 {
 	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	char *filename = (char *)rt_malloc(FTP_BUFFER_SIZE);
 	int ret = -1;
 	int file_size;
 
@@ -1039,14 +1138,20 @@ static int do_size(struct ftp_session *session, char *parameter)
 		return ret;
 	}
 
-	build_full_path(session, parameter, buffer, FTP_BUFFER_SIZE);
+	if(filename == NULL) {
+		rt_free(buffer);
+		return ret;
+	}
 
-	strcpy(parameter, buffer);
+	build_full_path(session, parameter, filename, FTP_BUFFER_SIZE);
 
-	file_size = ftp_get_filesize(parameter);
+	debug("filename:%s\n", filename);
+	debug("session->currentdir:%s\n", session->currentdir);
+
+	file_size = ftp_get_filesize(filename);
 
 	if( file_size == -1) {
-		rt_sprintf(buffer, "550 \"%s\" : not a regular file\r\n", parameter);
+		rt_sprintf(buffer, "550 \"%s\" : not a regular file\r\n", filename);
 		send(session->sockfd, buffer, strlen(buffer), 0);
 	} else {
 		rt_sprintf(buffer, "213 %d\r\n", file_size);
@@ -1055,6 +1160,7 @@ static int do_size(struct ftp_session *session, char *parameter)
 
 	ret = 0;
 
+	rt_free(filename);
 	rt_free(buffer);
 
 	return ret;
@@ -1097,20 +1203,28 @@ static int do_syst(struct ftp_session *session, char *parameter)
 static int do_cwd(struct ftp_session *session, char *parameter)
 {
 	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	char *filename = (char *)rt_malloc(FTP_BUFFER_SIZE);
 	int ret = -1;
 
 	if(buffer == NULL) {
 		return ret;
 	}
 
-	build_full_path(session, parameter, buffer, 256);
-	strcpy(parameter, buffer);
+	if(filename == NULL) {
+		rt_free(buffer);
+		return ret;
+	}
 
-	rt_sprintf(buffer, "250 Changed to directory \"%s\"\r\n", parameter);
+	build_full_path(session, parameter, filename, 256);
+	debug("filename:%s\n", filename);
+	debug("session->currentdir:%s\n", session->currentdir);
+
+	rt_sprintf(buffer, "250 Changed to directory \"%s\"\r\n", filename);
 	send(session->sockfd, buffer, strlen(buffer), 0);
-	strcpy(session->currentdir, parameter);
-	rt_kprintf("Changed to directory %s\n", parameter);
+	strcpy(session->currentdir, filename);
+	rt_kprintf("Changed to directory %s\n", filename);
 	ret = 0;
+	rt_free(filename);
 	rt_free(buffer);
 
 	return ret;
@@ -1119,21 +1233,29 @@ static int do_cwd(struct ftp_session *session, char *parameter)
 static int do_cdup(struct ftp_session *session, char *parameter)
 {
 	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	char *filename = (char *)rt_malloc(FTP_BUFFER_SIZE);
 	int ret = -1;
 
 	if(buffer == NULL) {
 		return ret;
 	}
 
-	rt_sprintf(buffer, "%s/%s", session->currentdir, "..");
-	strcpy(parameter, buffer);
+	if(filename == NULL) {
+		rt_free(buffer);
+		return ret;
+	}
 
-	rt_sprintf(buffer, "250 Changed to directory \"%s\"\r\n", parameter);
+	rt_sprintf(filename, "%s/%s", session->currentdir, "..");
+	debug("filename:%s\n", filename);
+	debug("session->currentdir:%s\n", session->currentdir);
+
+	rt_sprintf(buffer, "250 Changed to directory \"%s\"\r\n", filename);
 	send(session->sockfd, buffer, strlen(buffer), 0);
-	strcpy(session->currentdir, parameter);
-	rt_kprintf("Changed to directory %s\n", parameter);
+	strcpy(session->currentdir, filename);
+	rt_kprintf("Changed to directory %s\n", filename);
 
 	ret = 0;
+	rt_free(filename);
 	rt_free(buffer);
 
 	return ret;
@@ -1236,11 +1358,18 @@ static int do_rest(struct ftp_session *session, char *parameter)
 static int do_mkd(struct ftp_session *session, char *parameter)
 {
 	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	char *filename = (char *)rt_malloc(FTP_BUFFER_SIZE);
 	int ret = -1;
 
 	if(buffer == NULL) {
 		return ret;
 	}
+
+	if(filename == NULL) {
+		rt_free(buffer);
+		return ret;
+	}
+
 
 	if (session->is_anonymous == RT_TRUE) {
 		rt_sprintf(buffer, "550 Permission denied.\r\n");
@@ -1250,21 +1379,23 @@ static int do_mkd(struct ftp_session *session, char *parameter)
 		goto exit;
 	}
 
-	build_full_path(session, parameter, buffer, 256);
+	build_full_path(session, parameter, filename, 256);
 
-	strcpy(parameter, buffer);
+	debug("filename:%s\n", filename);
+	debug("session->currentdir:%s\n", session->currentdir);
 
-	if(mkdir(parameter, 0) == -1) {
-		rt_sprintf(buffer, "550 File \"%s\" exists.\r\n", parameter);
+	if(mkdir(filename, 0) == -1) {
+		rt_sprintf(buffer, "550 File \"%s\" exists.\r\n", filename);
 		send(session->sockfd, buffer, strlen(buffer), 0);
 	} else {
-		rt_sprintf(buffer, "257 directory \"%s\" successfully created.\r\n", parameter);
+		rt_sprintf(buffer, "257 directory \"%s\" successfully created.\r\n", filename);
 		send(session->sockfd, buffer, strlen(buffer), 0);
 	}
 
 	ret = 0;
 
 exit:
+	rt_free(filename);
 	rt_free(buffer);
 
 	return ret;
@@ -1273,11 +1404,18 @@ exit:
 static int do_dele(struct ftp_session *session, char *parameter)
 {
 	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	char *filename = (char *)rt_malloc(FTP_BUFFER_SIZE);
 	int ret = -1;
 
 	if(buffer == NULL) {
 		return ret;
 	}
+
+	if(filename == NULL) {
+		rt_free(buffer);
+		return ret;
+	}
+
 
 	if (session->is_anonymous == RT_TRUE) {
 		rt_sprintf(buffer, "550 Permission denied.\r\n");
@@ -1287,13 +1425,15 @@ static int do_dele(struct ftp_session *session, char *parameter)
 		goto exit;
 	}
 
-	build_full_path(session, parameter, buffer, 256);
-	strcpy(parameter, buffer);
+	build_full_path(session, parameter, filename, 256);
 
-	if(unlink(parameter) == 0) {
-		rt_sprintf(buffer, "250 Successfully deleted file \"%s\".\r\n", parameter);
+	debug("filename:%s\n", filename);
+	debug("session->currentdir:%s\n", session->currentdir);
+
+	if(unlink(filename) == 0) {
+		rt_sprintf(buffer, "250 Successfully deleted file \"%s\".\r\n", filename);
 	} else {
-		rt_sprintf(buffer, "550 Not such file or directory: %s.\r\n", parameter);
+		rt_sprintf(buffer, "550 Not such file or directory: %s.\r\n", filename);
 	}
 
 	send(session->sockfd, buffer, strlen(buffer), 0);
@@ -1301,6 +1441,7 @@ static int do_dele(struct ftp_session *session, char *parameter)
 	ret = 0;
 
 exit:
+	rt_free(filename);
 	rt_free(buffer);
 
 	return ret;
@@ -1309,11 +1450,18 @@ exit:
 static int do_rmd(struct ftp_session *session, char *parameter)
 {
 	char *buffer = (char *)rt_malloc(FTP_BUFFER_SIZE);
+	char *filename = (char *)rt_malloc(FTP_BUFFER_SIZE);
 	int ret = -1;
 
 	if(buffer == NULL) {
 		return ret;
 	}
+
+	if(filename == NULL) {
+		rt_free(buffer);
+		return ret;
+	}
+
 
 	if (session->is_anonymous == RT_TRUE) {
 		rt_sprintf(buffer, "550 Permission denied.\r\n");
@@ -1322,20 +1470,22 @@ static int do_rmd(struct ftp_session *session, char *parameter)
 		goto exit;
 	}
 
-	build_full_path(session, parameter, buffer, 256);
-	strcpy(parameter, buffer);
+	build_full_path(session, parameter, filename, 256);
+	debug("filename:%s\n", filename);
+	debug("session->currentdir:%s\n", session->currentdir);
 
-	if(unlink(parameter) == -1) {
-		rt_sprintf(buffer, "550 Directory \"%s\" doesn't exist.\r\n", parameter);
+	if(unlink(filename) == -1) {
+		rt_sprintf(buffer, "550 Directory \"%s\" doesn't exist.\r\n", filename);
 		send(session->sockfd, buffer, strlen(buffer), 0);
 	} else {
-		rt_sprintf(buffer, "257 directory \"%s\" successfully deleted.\r\n", parameter);
+		rt_sprintf(buffer, "257 directory \"%s\" successfully deleted.\r\n", filename);
 		send(session->sockfd, buffer, strlen(buffer), 0);
 	}
 
 	ret = 0;
 
 exit:
+	rt_free(filename);
 	rt_free(buffer);
 
 	return ret;

@@ -175,10 +175,16 @@ void rt_init_thread_entry(void *parameter)
 
 	rt_hw_pin_init();
 
+	rt_hw_usb_msc_init();
+
 #ifdef RT_USING_COMPONENTS_INIT
 	/* RT-Thread components initialization */
 	rt_components_init();
 #endif
+
+	//依赖组件lwip
+	/* initialize eth interface */
+	rt_hw_stm32_eth_init();
 
 	/* Filesystem Initialization */
 #ifdef RT_USING_DFS
@@ -190,54 +196,17 @@ void rt_init_thread_entry(void *parameter)
 //		rt_hw_msd_init();
 //#endif
 
-		/* init the device filesystem */
-		//dfs_init();
-
-#ifdef RT_USING_DFS_ELMFAT
 		/* init the elm chan FatFs filesystam*/
-		//elm_init();
-
-		rt_hw_usb_msc_init();
-
-		///* mount sd card fat partition 1 as root directory */
-		//if (dfs_mount("sd0", "/", "elm", 0, 0) == 0) {
-		//	rt_kprintf("File System initialized!\n");
-		//} else {
-		//	rt_kprintf("File System initialzation failed!\n");
-		//}
 		if (dfs_mount(RT_NULL, "/", "rom", 0, &(romfs_root)) == 0) {
 			rt_kprintf("ROM file system initializated!\n");
 		} else {
 			rt_kprintf("ROM file system initializate failed!\n");
 		}
-
-#endif
-	}
-#endif
-
-	/* LwIP Initialization */
-#ifdef RT_USING_LWIP
-	{
-		extern void lwip_sys_init(void);
-
-		/* register ethernetif device */
-		eth_system_device_init();
-
-		/* initialize eth interface */
-		rt_hw_stm32_eth_init();
-
-		/* init lwip system */
-		lwip_sys_init();
-		rt_kprintf("TCP/IP initialized!\n");
 	}
 #endif
 
 	//rt_hw_rtc_init();
 
-#ifdef RT_USING_FINSH
-	/* init finsh */
-	finsh_system_init();
-#endif
 	start_app();
 	idle();
 }
