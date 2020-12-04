@@ -188,7 +188,7 @@ static rt_bool_t is_absolute_path(char *path)
 	return RT_FALSE;
 }
 
-static void tune_absolute_path(char *path)
+static void normalize_absolute_path(char *path)
 {
 	char *r = NULL;
 	char *w = NULL;
@@ -209,54 +209,47 @@ static void tune_absolute_path(char *path)
 	w = path;
 
 	while(r != end) {
-		if(*(r + 0) == 0) {//为'/'
-			if(((r + 3) <= end) && (*(r + 1) == '.') && (*(r + 2) == '.') && (*(r + 3) == 0)) {//'/../../'
-				//'/../' 回退一节
+		if(*(r + 0) == 0) {//处理：'/'
+			if(part_flag == 0) {//添加节号
+				*w = '/';
+				//debug("[%d] w:%c\n", w - path, *w);
+				w++;
+			} else {//已添加节号，不再添加
+				//debug("[%d] process /\n", w - path);
+			}
+
+			if(((r + 3) <= end) && (*(r + 1) == '.') && (*(r + 2) == '.') && (*(r + 3) == 0)) {//处理'/../../' 回退一节
 				char *last_part;
+
+				w--;//刚刚添加了节号，退回到节号上
+				*w = 0;//清除节号
 
 				last_part = strrchr(path, '/');
 
-				if(last_part != NULL) {
+				if(last_part != NULL) {//回退一节成功
 					w = last_part;
+					//debug("[%d] process /../\n", w - path);
 					w++;
-					debug("[%d] process /../\n", w - path);
-				} else {//前面没有节了
-					//啥都不做
-					debug("[%d] process /../\n", w - path);
+				} else {//回退一节失败
+					*w = '/';//恢复节号
+					//debug("[%d] process /../\n", w - path);
+					w++;
 				}
 
 				r += 3;
-			} else if(((r + 2) <= end) && (*(r + 1) == '.') && (*(r + 2) == 0)) {//'/././'
-				//'/./' 忽略无效节
+			} else if(((r + 2) <= end) && (*(r + 1) == '.') && (*(r + 2) == 0)) {//处理'/././' 忽略无效节
 				r += 2;
-				debug("[%d] process /./\n", w - path);
-			} else if(((r + 1) <= end) && (*(r + 1) == 0)) {//'//'
-				//'//' 忽略无效节
-				if(part_flag == 0) {//添加节号
-					*w = '/';
-					debug("[%d] w:%c\n", w - path, *w);
-					w++;
-				}
-
+				//debug("[%d] process /./\n", w - path);
+			} else {//处理节号'/'
 				r++;
-				debug("[%d] process //\n", w - path);
-			} else {//处理节号
-				if(part_flag == 0) {//添加节号
-					*w = '/';
-					debug("[%d] w:%c\n", w - path, *w);
-					w++;
-					r++;
-				} else {//跳过节号
-					r++;
-					debug("[%d] process /\n", w - path);
-				}
+				//debug("[%d] process /\n", w - path);
 			}
 
 			part_flag = 1;
 		} else {//不为'/'
 			part_flag = 0;
 			*w = *r;
-			debug("[%d] w:%c\n", w - path, *w);
+			//debug("[%d] w:%c\n", w - path, *w);
 			w++;
 			r++;
 		}
@@ -275,7 +268,7 @@ static int build_full_path(struct ftp_session *session, char *path, char *new_pa
 
 	debug("new_path:%s\n", new_path);
 
-	tune_absolute_path(new_path);
+	normalize_absolute_path(new_path);
 
 	return 0;
 }
@@ -1025,10 +1018,9 @@ static int do_retr(struct ftp_session *session, char *parameter)
 		return ret;
 	}
 
-	build_full_path(session, parameter, filename, 256);
-
-	debug("filename:%s\n", filename);
 	debug("session->currentdir:%s\n", session->currentdir);
+	build_full_path(session, parameter, filename, 256);
+	debug("filename:%s\n", filename);
 
 	file_size = ftp_get_filesize(filename);
 
@@ -1094,10 +1086,9 @@ static int do_stor(struct ftp_session *session, char *parameter)
 		goto exit;
 	}
 
-	build_full_path(session, parameter, filename, FTP_BUFFER_SIZE);
-
-	debug("filename:%s\n", filename);
 	debug("session->currentdir:%s\n", session->currentdir);
+	build_full_path(session, parameter, filename, FTP_BUFFER_SIZE);
+	debug("filename:%s\n", filename);
 
 	session->filefd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0);
 
@@ -1143,10 +1134,9 @@ static int do_size(struct ftp_session *session, char *parameter)
 		return ret;
 	}
 
-	build_full_path(session, parameter, filename, FTP_BUFFER_SIZE);
-
-	debug("filename:%s\n", filename);
 	debug("session->currentdir:%s\n", session->currentdir);
+	build_full_path(session, parameter, filename, FTP_BUFFER_SIZE);
+	debug("filename:%s\n", filename);
 
 	file_size = ftp_get_filesize(filename);
 
@@ -1215,9 +1205,9 @@ static int do_cwd(struct ftp_session *session, char *parameter)
 		return ret;
 	}
 
+	debug("session->currentdir:%s\n", session->currentdir);
 	build_full_path(session, parameter, filename, 256);
 	debug("filename:%s\n", filename);
-	debug("session->currentdir:%s\n", session->currentdir);
 
 	rt_sprintf(buffer, "250 Changed to directory \"%s\"\r\n", filename);
 	send(session->sockfd, buffer, strlen(buffer), 0);
@@ -1245,9 +1235,9 @@ static int do_cdup(struct ftp_session *session, char *parameter)
 		return ret;
 	}
 
-	rt_sprintf(filename, "%s/%s", session->currentdir, "..");
-	debug("filename:%s\n", filename);
 	debug("session->currentdir:%s\n", session->currentdir);
+	build_full_path(session, "..", filename, 256);
+	debug("filename:%s\n", filename);
 
 	rt_sprintf(buffer, "250 Changed to directory \"%s\"\r\n", filename);
 	send(session->sockfd, buffer, strlen(buffer), 0);
@@ -1379,10 +1369,9 @@ static int do_mkd(struct ftp_session *session, char *parameter)
 		goto exit;
 	}
 
-	build_full_path(session, parameter, filename, 256);
-
-	debug("filename:%s\n", filename);
 	debug("session->currentdir:%s\n", session->currentdir);
+	build_full_path(session, parameter, filename, 256);
+	debug("filename:%s\n", filename);
 
 	if(mkdir(filename, 0) == -1) {
 		rt_sprintf(buffer, "550 File \"%s\" exists.\r\n", filename);
@@ -1425,10 +1414,9 @@ static int do_dele(struct ftp_session *session, char *parameter)
 		goto exit;
 	}
 
-	build_full_path(session, parameter, filename, 256);
-
-	debug("filename:%s\n", filename);
 	debug("session->currentdir:%s\n", session->currentdir);
+	build_full_path(session, parameter, filename, 256);
+	debug("filename:%s\n", filename);
 
 	if(unlink(filename) == 0) {
 		rt_sprintf(buffer, "250 Successfully deleted file \"%s\".\r\n", filename);
@@ -1470,9 +1458,9 @@ static int do_rmd(struct ftp_session *session, char *parameter)
 		goto exit;
 	}
 
+	debug("session->currentdir:%s\n", session->currentdir);
 	build_full_path(session, parameter, filename, 256);
 	debug("filename:%s\n", filename);
-	debug("session->currentdir:%s\n", session->currentdir);
 
 	if(unlink(filename) == -1) {
 		rt_sprintf(buffer, "550 Directory \"%s\" doesn't exist.\r\n", filename);
