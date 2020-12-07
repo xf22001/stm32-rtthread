@@ -266,7 +266,7 @@ static int build_full_path(struct ftp_session *session, char *path, char *new_pa
 		rt_sprintf(new_path, "%s/%s", session->currentdir, path);
 	}
 
-	debug("new_path:%s\n", new_path);
+	//debug("new_path:%s\n", new_path);
 
 	normalize_absolute_path(new_path);
 
@@ -474,7 +474,7 @@ static void ftpd_thread_entry(void *parameter)
 
 						if(session->data_poll_mask.s.poll_err == 1) {
 							if(FD_ISSET(session->data_sockfd, &efds)) {
-								debug("\n");
+								debug("poll err!\n");
 							}
 						}
 					}
@@ -678,7 +678,6 @@ static int retr_callback(void *ctx)
 			ret = 0;
 		}
 	} else if(numbytes == 0) {
-		debug("\n");
 		rt_sprintf(buffer, "226 Finished.\r\n");
 		send(session->sockfd, buffer, strlen(buffer), 0);
 		ret = 0;
@@ -1018,7 +1017,7 @@ static int do_retr(struct ftp_session *session, char *parameter)
 		return ret;
 	}
 
-	debug("session->currentdir:%s\n", session->currentdir);
+	//debug("session->currentdir:%s\n", session->currentdir);
 	build_full_path(session, parameter, filename, 256);
 	debug("filename:%s\n", filename);
 
@@ -1086,7 +1085,7 @@ static int do_stor(struct ftp_session *session, char *parameter)
 		goto exit;
 	}
 
-	debug("session->currentdir:%s\n", session->currentdir);
+	//debug("session->currentdir:%s\n", session->currentdir);
 	build_full_path(session, parameter, filename, FTP_BUFFER_SIZE);
 	debug("filename:%s\n", filename);
 
@@ -1134,7 +1133,7 @@ static int do_size(struct ftp_session *session, char *parameter)
 		return ret;
 	}
 
-	debug("session->currentdir:%s\n", session->currentdir);
+	//debug("session->currentdir:%s\n", session->currentdir);
 	build_full_path(session, parameter, filename, FTP_BUFFER_SIZE);
 	debug("filename:%s\n", filename);
 
@@ -1205,7 +1204,7 @@ static int do_cwd(struct ftp_session *session, char *parameter)
 		return ret;
 	}
 
-	debug("session->currentdir:%s\n", session->currentdir);
+	//debug("session->currentdir:%s\n", session->currentdir);
 	build_full_path(session, parameter, filename, 256);
 	debug("filename:%s\n", filename);
 
@@ -1235,7 +1234,7 @@ static int do_cdup(struct ftp_session *session, char *parameter)
 		return ret;
 	}
 
-	debug("session->currentdir:%s\n", session->currentdir);
+	//debug("session->currentdir:%s\n", session->currentdir);
 	build_full_path(session, "..", filename, 256);
 	debug("filename:%s\n", filename);
 
@@ -1370,7 +1369,7 @@ static int do_mkd(struct ftp_session *session, char *parameter)
 		goto exit;
 	}
 
-	debug("session->currentdir:%s\n", session->currentdir);
+	//debug("session->currentdir:%s\n", session->currentdir);
 	build_full_path(session, parameter, filename, 256);
 	debug("filename:%s\n", filename);
 
@@ -1415,7 +1414,7 @@ static int do_dele(struct ftp_session *session, char *parameter)
 		goto exit;
 	}
 
-	debug("session->currentdir:%s\n", session->currentdir);
+	//debug("session->currentdir:%s\n", session->currentdir);
 	build_full_path(session, parameter, filename, 256);
 	debug("filename:%s\n", filename);
 
@@ -1459,7 +1458,7 @@ static int do_rmd(struct ftp_session *session, char *parameter)
 		goto exit;
 	}
 
-	debug("session->currentdir:%s\n", session->currentdir);
+	//debug("session->currentdir:%s\n", session->currentdir);
 	build_full_path(session, parameter, filename, 256);
 	debug("filename:%s\n", filename);
 
