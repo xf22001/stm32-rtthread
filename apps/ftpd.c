@@ -1315,6 +1315,7 @@ static int do_port(struct ftp_session *session, char *parameter)
 	rt_kprintf("Connected to Data(PORT) %s @ %d\n", tmpip, portcom[4] * 256 + portcom[5]);
 	rt_sprintf(buffer, "200 Port Command Successful.\r\n");
 	send(session->sockfd, buffer, strlen(buffer), 0);
+	session->data_stamp = rt_tick_get();
 
 	ret = 0;
 exit:
