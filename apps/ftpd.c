@@ -444,6 +444,7 @@ static void ftpd_thread_entry(void *parameter)
 						debug("Client %s disconnected\n", inet_ntoa(session->remote.sin_addr));
 						//FD_CLR(session->sockfd, &rfds);
 						ftp_close_session(session);
+						break;
 					} else {
 						//debug("process session cmd\n");
 						buffer[numbytes] = 0;
@@ -451,6 +452,7 @@ static void ftpd_thread_entry(void *parameter)
 						if(ftp_process_request(session, buffer) == -1) {
 							debug("Client %s disconnected\r\n", inet_ntoa(session->remote.sin_addr));
 							ftp_close_session(session);
+							break;
 						}
 					}
 				}
@@ -501,7 +503,11 @@ static void ftpd_thread_entry(void *parameter)
 							if(FD_ISSET(session->data_sockfd, &rfds)) {
 								if(session->session_data_callback != NULL) {
 									//debug("process data_sockfd\n");
-									session->session_data_callback(session);
+									if(session->session_data_callback(session) == -1) {
+										ftp_close_session(session);
+										break;
+									}
+
 									session->data_stamp = rt_tick_get();
 								}
 							}
@@ -511,7 +517,11 @@ static void ftpd_thread_entry(void *parameter)
 							if(FD_ISSET(session->data_sockfd, &wfds)) {
 								if(session->session_data_callback != NULL) {
 									//debug("process data_sockfd\n");
-									session->session_data_callback(session);
+									if(session->session_data_callback(session) == -1) {
+										ftp_close_session(session);
+										break;
+									}
+
 									session->data_stamp = rt_tick_get();
 								}
 							}
@@ -573,8 +583,6 @@ static int list_callback(void *ctx)
 		rt_sprintf(buffer, "500 Internal Error\r\n");
 		ftpd_send(session->sockfd, buffer, strlen(buffer), 0);
 
-		ftp_close_session(session);
-
 		return ret;
 	}
 
@@ -585,8 +593,6 @@ static int list_callback(void *ctx)
 
 		rt_sprintf(buffer, "500 Internal Error\r\n");
 		ftpd_send(session->sockfd, buffer, strlen(buffer), 0);
-
-		ftp_close_session(session);
 
 		goto exit;
 	}
@@ -649,8 +655,6 @@ static int simple_list_callback(void *ctx)
 		rt_sprintf(buffer, "500 Internal Error\r\n");
 		ftpd_send(session->sockfd, buffer, strlen(buffer), 0);
 
-		ftp_close_session(session);
-
 		return ret;
 	}
 
@@ -661,8 +665,6 @@ static int simple_list_callback(void *ctx)
 
 		rt_sprintf(buffer, "500 Internal Error\r\n");
 		ftpd_send(session->sockfd, buffer, strlen(buffer), 0);
-
-		ftp_close_session(session);
 
 		goto exit;
 	}
@@ -703,7 +705,6 @@ static int retr_callback(void *ctx)
 		rt_sprintf(buffer, "500 Internal Error\r\n");
 		ftpd_send(session->sockfd, buffer, strlen(buffer), 0);
 
-		ftp_close_session(session);
 		return ret;
 	}
 
@@ -756,7 +757,6 @@ static int stor_callback(void *ctx)
 		rt_sprintf(buffer, "500 Internal Error\r\n");
 		ftpd_send(session->sockfd, buffer, strlen(buffer), 0);
 
-		ftp_close_session(session);
 		return ret;
 	}
 
