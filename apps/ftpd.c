@@ -130,18 +130,24 @@ static void ftp_close_session(struct ftp_session *session)
 		close(session->filefd);
 	}
 
-	if (session_list == session) {
-		session_list = session_list->next;
-		session->next = NULL;
-	} else {
-		list = session_list;
+	list = session_list;
 
-		while (list->next != session) {
+	if(list == session) {
+		session_list = list->next;
+	} else {
+		while (list != NULL) {
+			if(list->next == session) {
+				break;
+			}
+
 			list = list->next;
 		}
 
-		list->next = session->next;
-		session->next = NULL;
+		if(list != NULL) {
+			list->next = session->next;
+		} else {
+			debug("list == NULL!!!!\n");
+		}
 	}
 
 	debug("free session:%p\n", session);
