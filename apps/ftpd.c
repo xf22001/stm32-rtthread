@@ -1643,7 +1643,12 @@ static int ftp_process_request(struct ftp_session *session, char *buf)
 
 void ftpd_start()
 {
-	rt_thread_t tid;
+	static rt_thread_t tid = RT_NULL;
+
+	if(tid != RT_NULL) {
+		debug("ftpd started!\n");
+		return;
+	}
 
 	tid = rt_thread_create("ftpd", ftpd_thread_entry, RT_NULL, 4096, 30, 5);
 
