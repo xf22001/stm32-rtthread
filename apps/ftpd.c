@@ -1063,7 +1063,7 @@ static int do_retr(struct ftp_session *session, char *parameter)
 	}
 
 	//debug("session->currentdir:%s\n", session->currentdir);
-	build_full_path(session, parameter, filename, 256);
+	build_full_path(session, parameter, filename, FTP_BUFFER_SIZE);
 	debug("filename:%s\n", filename);
 
 	file_size = ftp_get_filesize(filename);
@@ -1250,7 +1250,7 @@ static int do_cwd(struct ftp_session *session, char *parameter)
 	}
 
 	//debug("session->currentdir:%s\n", session->currentdir);
-	build_full_path(session, parameter, filename, 256);
+	build_full_path(session, parameter, filename, FTP_BUFFER_SIZE);
 	debug("filename:%s\n", filename);
 
 	rt_sprintf(buffer, "250 Changed to directory \"%s\"\r\n", filename);
@@ -1280,7 +1280,7 @@ static int do_cdup(struct ftp_session *session, char *parameter)
 	}
 
 	//debug("session->currentdir:%s\n", session->currentdir);
-	build_full_path(session, "..", filename, 256);
+	build_full_path(session, "..", filename, FTP_BUFFER_SIZE);
 	debug("filename:%s\n", filename);
 
 	rt_sprintf(buffer, "250 Changed to directory \"%s\"\r\n", filename);
@@ -1415,7 +1415,7 @@ static int do_mkd(struct ftp_session *session, char *parameter)
 	}
 
 	//debug("session->currentdir:%s\n", session->currentdir);
-	build_full_path(session, parameter, filename, 256);
+	build_full_path(session, parameter, filename, FTP_BUFFER_SIZE);
 	debug("filename:%s\n", filename);
 
 	if(mkdir(filename, 0) == -1) {
@@ -1460,7 +1460,7 @@ static int do_dele(struct ftp_session *session, char *parameter)
 	}
 
 	//debug("session->currentdir:%s\n", session->currentdir);
-	build_full_path(session, parameter, filename, 256);
+	build_full_path(session, parameter, filename, FTP_BUFFER_SIZE);
 	debug("filename:%s\n", filename);
 
 	if(unlink(filename) == 0) {
@@ -1504,7 +1504,7 @@ static int do_rmd(struct ftp_session *session, char *parameter)
 	}
 
 	//debug("session->currentdir:%s\n", session->currentdir);
-	build_full_path(session, parameter, filename, 256);
+	build_full_path(session, parameter, filename, FTP_BUFFER_SIZE);
 	debug("filename:%s\n", filename);
 
 	if(unlink(filename) == -1) {
