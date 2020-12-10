@@ -637,13 +637,14 @@ static int list_callback(void *ctx)
 
 	ret = 0;
 
-	closesocket(session->data_sockfd);
-	session->data_sockfd = -1;
-
 	rt_sprintf(buffer, "226 Transfert Complete.\r\n");
 	ftpd_send(session->sockfd, buffer, strlen(buffer), 0);
 
 exit:
+	closesocket(session->data_sockfd);
+	session->data_sockfd = -1;
+	session->session_data_callback = NULL;
+
 	rt_free(buffer);
 
 	return ret;
@@ -688,13 +689,14 @@ static int simple_list_callback(void *ctx)
 
 	closedir(dirp);
 
-	closesocket(session->data_sockfd);
-	session->data_sockfd = -1;
-
 	rt_sprintf(buffer, "226 Transfert Complete.\r\n");
 	ftpd_send(session->sockfd, buffer, strlen(buffer), 0);
 
 exit:
+
+	closesocket(session->data_sockfd);
+	session->data_sockfd = -1;
+	session->session_data_callback = NULL;
 
 	rt_free(buffer);
 	return 0;
@@ -726,6 +728,7 @@ static int retr_callback(void *ctx)
 			session->filefd = -1;
 			closesocket(session->data_sockfd);
 			session->data_sockfd = -1;
+			session->session_data_callback = NULL;
 		} else {
 			ret = 0;
 		}
@@ -738,6 +741,7 @@ static int retr_callback(void *ctx)
 		session->filefd = -1;
 		closesocket(session->data_sockfd);
 		session->data_sockfd = -1;
+		session->session_data_callback = NULL;
 	} else if(numbytes == -1) {
 		debug("abort retr\n");
 
@@ -745,6 +749,7 @@ static int retr_callback(void *ctx)
 		session->filefd = -1;
 		closesocket(session->data_sockfd);
 		session->data_sockfd = -1;
+		session->session_data_callback = NULL;
 	}
 
 	rt_free(buffer);
@@ -778,8 +783,10 @@ static int stor_callback(void *ctx)
 			session->filefd = -1;
 			closesocket(session->data_sockfd);
 			session->data_sockfd = -1;
+			session->session_data_callback = NULL;
 		}
 	} else if(numbytes == 0) {
+		debug("finish stor!\n");
 		rt_sprintf(buffer, "226 Finished.\r\n");
 		ftpd_send(session->sockfd, buffer, strlen(buffer), 0);
 		ret = 0;
@@ -788,13 +795,15 @@ static int stor_callback(void *ctx)
 		session->filefd = -1;
 		closesocket(session->data_sockfd);
 		session->data_sockfd = -1;
-	} else if(numbytes == -1) {
+		session->session_data_callback = NULL;
+	} else {
 		debug("abort stor!\n");
 
 		close(session->filefd);
 		session->filefd = -1;
 		closesocket(session->data_sockfd);
 		session->data_sockfd = -1;
+		session->session_data_callback = NULL;
 	}
 
 	rt_free(buffer);
@@ -816,7 +825,7 @@ static int do_user(struct ftp_session *session, char *parameter)
 	// login correct
 	if(strcmp(parameter, "anonymous") == 0) {
 		session->is_anonymous = RT_TRUE;
-		rt_sprintf(buffer, "331 Anonymous login OK SEND e-mail address for password.\r\n", parameter);
+		rt_sprintf(buffer, "331 Anonymous login OK SEND e-mail address for password.\r\n");
 		ftpd_send(session->sockfd, buffer, strlen(buffer), 0);
 		ret = 0;
 	} else if (strcmp(parameter, FTP_USER) == 0) {
@@ -1075,6 +1084,7 @@ static int do_retr(struct ftp_session *session, char *parameter)
 	file_size = ftp_get_filesize(filename);
 
 	if (file_size == -1) {
+		debug("ftp_get_filesize error\n");
 		rt_sprintf(buffer, "550 \"%s\" : not a regular file\r\n", filename);
 		ftpd_send(session->sockfd, buffer, strlen(buffer), 0);
 
@@ -1084,6 +1094,7 @@ static int do_retr(struct ftp_session *session, char *parameter)
 	session->filefd = open(filename, O_RDONLY, 0);
 
 	if (session->filefd < 0) {
+		debug("open error\n");
 		rt_sprintf(buffer, "550 \"%s\" : not a regular file\r\n", filename);
 		ftpd_send(session->sockfd, buffer, strlen(buffer), 0);
 
@@ -1143,6 +1154,7 @@ static int do_stor(struct ftp_session *session, char *parameter)
 	session->filefd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0);
 
 	if(session->filefd < 0) {
+		debug("open error\n");
 		rt_sprintf(buffer, "550 Cannot open \"%s\" for writing.\r\n", filename);
 		ftpd_send(session->sockfd, buffer, strlen(buffer), 0);
 
@@ -1355,6 +1367,7 @@ static int do_port(struct ftp_session *session, char *parameter)
 
 			closesocket(session->data_sockfd);
 			session->data_sockfd = -1;
+			session->session_data_callback = NULL;
 
 			ret = 0;
 			goto exit;
