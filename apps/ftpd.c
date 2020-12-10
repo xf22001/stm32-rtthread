@@ -1095,7 +1095,7 @@ static int do_retr(struct ftp_session *session, char *parameter)
 
 	if (session->filefd < 0) {
 		debug("open error\n");
-		rt_sprintf(buffer, "550 \"%s\" : not a regular file\r\n", filename);
+		rt_sprintf(buffer, "550 \"%s\" : no access file\r\n", filename);
 		ftpd_send(session->sockfd, buffer, strlen(buffer), 0);
 
 		goto exit;
