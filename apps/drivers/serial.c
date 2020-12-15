@@ -6,7 +6,7 @@
  *   文件名称：serial.c
  *   创 建 者：肖飞
  *   创建日期：2020年11月24日 星期二 10时38分16秒
- *   修改日期：2020年11月27日 星期五 09时58分26秒
+ *   修改日期：2020年12月15日 星期二 13时05分45秒
  *   描    述：
  *
  *================================================================*/
@@ -127,14 +127,14 @@ static rt_size_t rt_serial_read(rt_device_t dev, rt_off_t pos, void *buffer, rt_
 			HAL_UART_AbortReceive(uart->huart);
 			HAL_UART_Receive_DMA(uart->huart, &uart->int_rx->rx_buffer[uart->int_rx->save_index], UART_RX_DMA_BUFFER_SIZE);
 
-			if(size != 0) {
+			if(size != 0) {//还可以收
 				rt_err_t result = RT_EOK;
 				result = rt_sem_take(uart->int_rx->sem, rt_tick_from_millisecond(5));
 
 				if (result != RT_EOK) {//超时
 					if((rt_uint32_t)ptr - (rt_uint32_t)buffer != 0) {//如果有数据，立即返回
 						break;
-					} else {//一直等待有数据
+					} else {//如果没数据，一直等待有数据
 					}
 				}
 			}
