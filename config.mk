@@ -14,6 +14,8 @@ CPPPATHS :=-I$(BSP_ROOT) \
 	-I$(BSP_ROOT)/packages/CmBacktrace-v1.4.0 \
 	-I$(BSP_ROOT)/packages/at_device-latest/class/sim76xx \
 	-I$(BSP_ROOT)/packages/at_device-latest/inc \
+	-I$(BSP_ROOT)/packages/gui_engine-latest/include \
+	-I$(BSP_ROOT)/packages/gui_engine-latest/libraries/lodepng \
 	-I$(BSP_ROOT)/packages/netutils-v1.2.0/iperf \
 	-I$(BSP_ROOT)/packages/netutils-v1.2.0/tcpdump \
 	-I$(BSP_ROOT)/packages/netutils-v1.2.0/telnet \
