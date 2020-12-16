@@ -6,7 +6,7 @@
 #   文件名称：flash.sh
 #   创 建 者：肖飞
 #   创建日期：2019年08月09日 星期五 10时59分21秒
-#   修改日期：2020年11月24日 星期二 09时18分51秒
+#   修改日期：2020年12月16日 星期三 11时21分39秒
 #   描    述：
 #
 #================================================================
@@ -143,21 +143,21 @@ function main() {
 
 	if [ $erase_flash -eq 1 ];then
 		gen_jlink_script_erase
-		JLinkExe -Device "STM32F207VE" -IF "$link_if" -JTAGConf "-1,-1" -Speed "4000" -CommanderScript "$jlink_script"
+		JLinkExe -Device "STM32F407VE" -IF "$link_if" -JTAGConf "-1,-1" -Speed "4000" -CommanderScript "$jlink_script"
 		rm "$jlink_script"
 	fi
 
 	if [ $flush_flash -eq 1 ];then
 		gen_jlink_script_flash
-		JLinkExe -Device "STM32F207VE" -IF "$link_if" -JTAGConf "-1,-1" -Speed "4000" -CommanderScript "$jlink_script"
+		JLinkExe -Device "STM32F407VE" -IF "$link_if" -JTAGConf "-1,-1" -Speed "4000" -CommanderScript "$jlink_script"
 		rm "$jlink_script"
 	fi	
 
 	if [ $debug -eq 1 ];then
 		gen_jlink_script_debug
-		JLinkExe -Device "STM32F207VE" -IF "$link_if" -JTAGConf "-1,-1" -Speed "4000" -CommanderScript "$jlink_script"
+		JLinkExe -Device "STM32F407VE" -IF "$link_if" -JTAGConf "-1,-1" -Speed "4000" -CommanderScript "$jlink_script"
 		rm "$jlink_script"
-		JLinkGDBServer -select USB -device STM32F207VE -endian little -if $link_if -speed 2000 -noir -noLocalhostOnly
+		JLinkGDBServer -select USB -device STM32F407VE -endian little -if $link_if -speed 2000 -noir -noLocalhostOnly
 	fi
 }
 
