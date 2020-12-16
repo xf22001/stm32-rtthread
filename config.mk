@@ -11,6 +11,7 @@ CPPPATHS :=-I$(BSP_ROOT) \
 	-I$(BSP_ROOT)/Libraries/STM32F2x7_ETH_Driver/inc \
 	-I$(BSP_ROOT)/Libraries/STM32F2xx_StdPeriph_Driver/inc \
 	-I$(BSP_ROOT)/applications \
+	-I$(BSP_ROOT)/packages/CmBacktrace-v1.4.0 \
 	-I$(BSP_ROOT)/packages/at_device-latest/class/sim76xx \
 	-I$(BSP_ROOT)/packages/at_device-latest/inc \
 	-I$(BSP_ROOT)/packages/netutils-v1.2.0/iperf \
